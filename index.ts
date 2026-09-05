@@ -1,5 +1,5 @@
 /**
- * hive — cross-instance peer awareness and steering for omp.
+ * omp-collective — cross-instance peer awareness and steering for omp.
  *
  * Every omp process announces itself into a machine-global rendezvous directory and
  * listens on its own unix socket. Each instance then materializes every *other* live
@@ -33,10 +33,10 @@ const MAX_CALLSIGN = 24;
 const MAX_STATUS_NAME = 12;
 const MAX_STATUS_WIDTH = 32;
 
-const HIVE_DIR = path.join(
+const COLLECTIVE_DIR = path.join(
 	process.env.XDG_STATE_HOME ? path.join(process.env.XDG_STATE_HOME, "omp") : path.join(os.homedir(), ".omp"),
 	"run",
-	"hive",
+	"collective",
 );
 
 /**
@@ -46,7 +46,7 @@ const HIVE_DIR = path.join(
  */
 const SETTINGS_UNUSED = { get: () => undefined } as unknown as Parameters<typeof executeSend>[0]["settings"];
 
-interface HiveRecord {
+interface PeerRecord {
 	v: number;
 	pid: number;
 	callsign: string;
@@ -70,11 +70,11 @@ interface IrcMessageLike {
 }
 
 /** Frame exchanged over a peer's unix socket, one JSON object per line. */
-type HiveFrame =
+type PeerFrame =
 	| { t: "msg"; from: string; body: string; replyTo?: string }
 	| { t: "ping"; from: string };
 
-interface HiveReply {
+interface PeerReply {
 	ok: boolean;
 	outcome?: string;
 	callsign?: string;
@@ -92,7 +92,7 @@ interface SessionLike {
 	/** Present on the host's real AgentSession; the seam `IrcBus` uses for delivery. */
 	deliverIrcMessage?: (msg: IrcMessageLike, opts?: { suppressRelay?: boolean }) => Promise<"injected" | "woken">;
 	/** Marker identifying a ref this extension owns. */
-	hiveSocket?: string;
+	peerSocket?: string;
 }
 
 interface RefLike {
@@ -118,7 +118,7 @@ interface RegistryLike {
 	setActivity(id: string, activity: string): void;
 }
 
-interface HiveContext {
+interface CollectiveContext {
 	cwd: string;
 	ui: {
 		notify(message: string, type?: "info" | "warning" | "error"): void;
@@ -135,11 +135,11 @@ interface HiveContext {
 	clearTimer(timer: unknown): void;
 }
 
-interface HivePi {
-	on(event: string, handler: (event: unknown, ctx: HiveContext) => Promise<void> | void): void;
+interface CollectivePi {
+	on(event: string, handler: (event: unknown, ctx: CollectiveContext) => Promise<void> | void): void;
 	registerCommand(
 		name: string,
-		options: { description?: string; handler: (args: string, ctx: HiveContext) => Promise<void> },
+		options: { description?: string; handler: (args: string, ctx: CollectiveContext) => Promise<void> },
 	): void;
 	getSessionName(): string | undefined;
 	sendUserMessage(content: string, options?: { deliverAs?: "steer" | "followUp" | "aside" }): void;
@@ -150,24 +150,24 @@ interface HivePi {
 // documented shape, confirmed against src/registry/agent-registry.ts:139-261 of 18.1.6.
 const registry = (): RegistryLike => AgentRegistry.global() as unknown as RegistryLike;
 
-/** One hive node per process, even when several sessions load the extension. */
-let node: HiveNode | undefined;
+/** One collective node per process, even when several sessions load the extension. */
+let node: CollectiveNode | undefined;
 
-class HiveNode {
-	readonly #pi: HivePi;
-	readonly #ctx: HiveContext;
-	readonly #socketPath = path.join(HIVE_DIR, `${process.pid}.sock`);
-	readonly #recordPath = path.join(HIVE_DIR, `${process.pid}.json`);
+class CollectiveNode {
+	readonly #pi: CollectivePi;
+	readonly #ctx: CollectiveContext;
+	readonly #socketPath = path.join(COLLECTIVE_DIR, `${process.pid}.sock`);
+	readonly #recordPath = path.join(COLLECTIVE_DIR, `${process.pid}.json`);
 	readonly #startedAt = Date.now();
 	/** Remote peers currently materialized in the local registry, keyed by callsign. */
-	readonly #peers = new Map<string, HiveRecord>();
+	readonly #peers = new Map<string, PeerRecord>();
 	#override: string | undefined;
 	#callsign: string;
 	#server: net.Server | undefined;
 	#timer: unknown;
 	#stopped = false;
 
-	constructor(pi: HivePi, ctx: HiveContext) {
+	constructor(pi: CollectivePi, ctx: CollectiveContext) {
 		this.#pi = pi;
 		this.#ctx = ctx;
 		this.#callsign = `omp-${process.pid}`;
@@ -177,15 +177,15 @@ class HiveNode {
 		return this.#callsign;
 	}
 
-	get peers(): HiveRecord[] {
+	get peers(): PeerRecord[] {
 		return [...this.#peers.values()].sort((a, b) => a.callsign.localeCompare(b.callsign));
 	}
 
 	start(): void {
-		fs.mkdirSync(HIVE_DIR, { recursive: true, mode: 0o700 });
+		fs.mkdirSync(COLLECTIVE_DIR, { recursive: true, mode: 0o700 });
 		fs.rmSync(this.#socketPath, { force: true });
 		const server = net.createServer(socket => this.#accept(socket));
-		server.on("error", error => this.#pi.logger?.warn(`hive: server error: ${String(error)}`));
+		server.on("error", error => this.#pi.logger?.warn(`collective: server error: ${String(error)}`));
 		server.listen(this.#socketPath, () => {
 			try {
 				fs.chmodSync(this.#socketPath, 0o600);
@@ -226,7 +226,7 @@ class HiveNode {
 			seen.add(record.callsign);
 			const known = this.#peers.get(record.callsign);
 			if (!known) {
-				if (this.#claimPeer(record)) this.#ctx.ui.notify(`hive: ${record.callsign} joined (${record.project})`, "info");
+				if (this.#claimPeer(record)) this.#ctx.ui.notify(`collective: ${record.callsign} joined (${record.project})`, "info");
 				continue;
 			}
 			this.#peers.set(record.callsign, record);
@@ -237,9 +237,9 @@ class HiveNode {
 			if (seen.has(callsign)) continue;
 			this.#releasePeer(callsign);
 			this.#peers.delete(callsign);
-			this.#ctx.ui.notify(`hive: ${callsign} left`, "info");
+			this.#ctx.ui.notify(`collective: ${callsign} left`, "info");
 		}
-		this.#ctx.ui.setStatus("hive", this.#statusLabel());
+		this.#ctx.ui.setStatus("collective", this.#statusLabel());
 	}
 
 	/**
@@ -293,7 +293,7 @@ class HiveNode {
 		if (clash) callsign = `${callsign}-${process.pid}`.slice(0, MAX_CALLSIGN + 8);
 		this.#callsign = callsign;
 
-		const record: HiveRecord = {
+		const record: PeerRecord = {
 			v: PROTOCOL,
 			pid: process.pid,
 			callsign,
@@ -312,21 +312,21 @@ class HiveNode {
 	}
 
 	/** Live records only; dead pids and stale beats are unlinked on sight. */
-	#readRecords(): HiveRecord[] {
+	#readRecords(): PeerRecord[] {
 		let names: string[];
 		try {
-			names = fs.readdirSync(HIVE_DIR);
+			names = fs.readdirSync(COLLECTIVE_DIR);
 		} catch {
 			return [];
 		}
 		const now = Date.now();
-		const records: HiveRecord[] = [];
+		const records: PeerRecord[] = [];
 		for (const name of names) {
 			if (!name.endsWith(".json")) continue;
-			const file = path.join(HIVE_DIR, name);
-			let record: HiveRecord;
+			const file = path.join(COLLECTIVE_DIR, name);
+			let record: PeerRecord;
 			try {
-				record = JSON.parse(fs.readFileSync(file, "utf8")) as HiveRecord;
+				record = JSON.parse(fs.readFileSync(file, "utf8")) as PeerRecord;
 			} catch {
 				fs.rmSync(file, { force: true });
 				continue;
@@ -358,10 +358,10 @@ class HiveNode {
 	 * inside `listVisibleTo`'s flat alive filter and clear of the parked lifecycle gate,
 	 * so `hub send` goes straight to the stub's `deliverIrcMessage`.
 	 */
-	#claimPeer(record: HiveRecord): boolean {
+	#claimPeer(record: PeerRecord): boolean {
 		const existing = registry().get(record.callsign);
-		if (existing && existing.session?.hiveSocket === undefined) {
-			this.#pi.logger?.warn(`hive: callsign "${record.callsign}" collides with a local agent; skipping`);
+		if (existing && existing.session?.peerSocket === undefined) {
+			this.#pi.logger?.warn(`collective: callsign "${record.callsign}" collides with a local agent; skipping`);
 			return false;
 		}
 		const stub: SessionLike & {
@@ -370,7 +370,7 @@ class HiveNode {
 			waitForIrcReplies: () => Promise<IrcMessageLike[]>;
 		} = {
 			isStreaming: false,
-			hiveSocket: record.socket,
+			peerSocket: record.socket,
 			subscribe: () => () => undefined,
 			subscribeRunState: () => () => undefined,
 			waitForIrcReplies: async () => [],
@@ -395,20 +395,20 @@ class HiveNode {
 
 	#releasePeer(callsign: string): void {
 		const ref = registry().get(callsign);
-		if (ref?.session?.hiveSocket === undefined) return;
+		if (ref?.session?.peerSocket === undefined) return;
 		registry().unregister(callsign);
 	}
 
-	#activityFor(record: HiveRecord): string {
+	#activityFor(record: PeerRecord): string {
 		return `omp instance pid ${record.pid} in ${record.cwd}${record.busy ? " (working)" : ""}`;
 	}
 
 	/** One request/response round trip over a peer's socket. */
-	#request(record: HiveRecord, frame: HiveFrame): Promise<HiveReply | undefined> {
-		const { promise, resolve } = Promise.withResolvers<HiveReply | undefined>();
+	#request(record: PeerRecord, frame: PeerFrame): Promise<PeerReply | undefined> {
+		const { promise, resolve } = Promise.withResolvers<PeerReply | undefined>();
 		let settled = false;
 		const socket = net.createConnection({ path: record.socket });
-		const finish = (value: HiveReply | undefined): void => {
+		const finish = (value: PeerReply | undefined): void => {
 			if (settled) return;
 			settled = true;
 			socket.destroy();
@@ -423,7 +423,7 @@ class HiveNode {
 			const line = buffer.indexOf("\n");
 			if (line === -1) return;
 			try {
-				finish(JSON.parse(buffer.slice(0, line)) as HiveReply);
+				finish(JSON.parse(buffer.slice(0, line)) as PeerReply);
 			} catch {
 				finish({ ok: false, error: "bad response" });
 			}
@@ -448,9 +448,9 @@ class HiveNode {
 	}
 
 	async #handle(line: string, socket: net.Socket): Promise<void> {
-		let frame: HiveFrame;
+		let frame: PeerFrame;
 		try {
-			frame = JSON.parse(line) as HiveFrame;
+			frame = JSON.parse(line) as PeerFrame;
 		} catch {
 			socket.write(`${JSON.stringify({ ok: false, error: "bad frame" })}\n`);
 			return;
@@ -493,17 +493,17 @@ class HiveNode {
 			if (receipt?.outcome === "failed") throw new Error(receipt.error ?? "delivery failed");
 			return receipt?.outcome === "woken" ? "woken" : "injected";
 		} catch (error) {
-			this.#pi.logger?.warn(`hive: bus delivery failed (${String(error)}); falling back to aside`);
-			this.#pi.sendUserMessage(`[hive ${frame.from}] ${frame.body}`, { deliverAs: "aside" });
+			this.#pi.logger?.warn(`collective: bus delivery failed (${String(error)}); falling back to aside`);
+			this.#pi.sendUserMessage(`[collective ${frame.from}] ${frame.body}`, { deliverAs: "aside" });
 			return "injected";
 		}
 	}
 }
 
-export default function hive(pi: HivePi): void {
+export default function collective(pi: CollectivePi): void {
 	pi.on("session_start", async (_event, ctx) => {
 		if (node) return;
-		node = new HiveNode(pi, ctx);
+		node = new CollectiveNode(pi, ctx);
 		node.start();
 	});
 
@@ -526,13 +526,13 @@ export default function hive(pi: HivePi): void {
 			.map(peer => `- \`${peer.callsign}\` — omp instance in ${peer.cwd}${peer.busy ? " (working)" : " (idle)"}`)
 			.join("\n");
 		const note = [
-			"<hive-peers>",
-			`You are the omp instance with hive callsign \`${node.callsign}\`.`,
+			"<collective-peers>",
+			`You are the omp instance with collective callsign \`${node.callsign}\`.`,
 			"Other live omp instances on this machine are addressable by callsign through the `hub` tool, exactly like local subagents:",
 			'`hub` op=list shows them; `hub` op=send to="<callsign>" injects a real prompt into that terminal\'s agent and its reply comes back to you as a peer message.',
 			"",
 			roster,
-			"</hive-peers>",
+			"</collective-peers>",
 		].join("\n");
 		const { messages } = event as { messages: ContextMessageLike[] };
 		for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -547,35 +547,35 @@ export default function hive(pi: HivePi): void {
 	});
 
 	pi.registerCommand("callsign", {
-		description: "Show or set this instance's hive callsign",
+		description: "Show or set this instance's collective callsign",
 		handler: async (args, ctx) => {
 			if (!node) {
-				ctx.ui.notify("hive: not started", "warning");
+				ctx.ui.notify("collective: not started", "warning");
 				return;
 			}
 			const name = args.trim();
 			if (name.length === 0) {
-				ctx.ui.notify(`hive callsign: ${node.callsign}`, "info");
+				ctx.ui.notify(`collective callsign: ${node.callsign}`, "info");
 				return;
 			}
-			ctx.ui.notify(`hive callsign: ${node.setOverride(name)}`, "info");
+			ctx.ui.notify(`collective callsign: ${node.setOverride(name)}`, "info");
 		},
 	});
 
-	pi.registerCommand("hive", {
+	pi.registerCommand("collective", {
 		description: "List live omp instances on this machine",
 		handler: async (_args, ctx) => {
 			if (!node) {
-				ctx.ui.notify("hive: not started", "warning");
+				ctx.ui.notify("collective: not started", "warning");
 				return;
 			}
 			const peers = node.peers;
 			if (peers.length === 0) {
-				ctx.ui.notify(`hive: ${node.callsign} (no peers)`, "info");
+				ctx.ui.notify(`collective: ${node.callsign} (no peers)`, "info");
 				return;
 			}
 			const lines = peers.map(peer => `${peer.callsign} — pid ${peer.pid} · ${peer.cwd}${peer.busy ? " · working" : ""}`);
-			ctx.ui.notify(`hive: ${node.callsign}\n${lines.join("\n")}`, "info");
+			ctx.ui.notify(`collective: ${node.callsign}\n${lines.join("\n")}`, "info");
 		},
 	});
 }

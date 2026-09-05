@@ -1,5 +1,5 @@
 {
-  "name": "omp-hive",
+  "name": "omp-collective",
   "owner": {
     "name": "Andrei Verdes"
   },
@@ -9,7 +9,7 @@
   },
   "plugins": [
     {
-      "name": "omp-hive",
+      "name": "omp-collective",
       "source": "./",
       "version": "0.1.0",
       "description": "Every running omp instance sees the others by callsign and can prompt them through the built-in hub tool.",

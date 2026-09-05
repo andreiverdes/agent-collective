@@ -1,4 +1,4 @@
-# omp-hive
+# omp-collective
 
 Cross-instance peer awareness and steering for [omp](https://www.npmjs.com/package/@oh-my-pi/pi-coding-agent).
 
@@ -17,29 +17,29 @@ Works across project directories on one machine.
 ## Install
 
 ```sh
-omp plugin install omp-hive
+omp plugin install omp-collective
 ```
 
-Restart each omp instance you want in the hive (extensions load at session start).
+Restart each omp instance you want in the collective (extensions load at session start).
 
 This repo also ships `.omp-plugin/marketplace.json`, so it works as a marketplace source:
 
 ```sh
-omp plugin marketplace add <owner>/omp-hive
-omp plugin install omp-hive@omp-hive
+omp plugin marketplace add andreiverdes/omp-collective
+omp plugin install omp-collective@omp-collective
 ```
 
 Install it **one way only**. Two copies loaded in one process (for example an npm install plus a
-loose `~/.omp/agent/extensions/hive.ts`) means two hive nodes per instance: two records, two
+loose `~/.omp/agent/extensions/collective.ts`) means two collective nodes per instance: two records, two
 sockets, and peer refs claimed twice.
 
 ## Use
 
 | Input                | Effect                                                                       |
 | -------------------- | ---------------------------------------------------------------------------- |
-| `/rename 007`        | Renames the session; hive adopts `007` as the callsign                        |
+| `/rename 007`        | Renames the session; the collective adopts `007` as the callsign                        |
 | `/callsign 007`      | Sets the callsign only, leaving the session title alone                       |
-| `/hive`              | Lists live instances (callsign, pid, cwd, working state)                      |
+| `/collective`              | Lists live instances (callsign, pid, cwd, working state)                      |
 | `hub op=list`        | Same peers, as addressable agents, alongside local subagents                  |
 | `hub op=send to=…`   | Steer a peer; `await=true` waits for its reply                                |
 
@@ -63,7 +63,7 @@ Name collisions deconflict by start time: the older instance keeps the bare name
 
 ## How it works
 
-- Each process writes `~/.omp/run/hive/<pid>.json` (0600, 1.2 s heartbeat) and listens on
+- Each process writes `~/.omp/run/collective/<pid>.json` (0600, 1.2 s heartbeat) and listens on
   `<pid>.sock` in the same directory. Liveness is `process.kill(pid, 0)` plus a stale-beat reap,
   matching omp's own presence conventions. Records and sockets are unlinked on session shutdown.
 - Every other live instance is registered in this process's `AgentRegistry` as a ref whose session
@@ -84,8 +84,8 @@ Name collisions deconflict by start time: the older instance keeps the bare name
   break it; the failure mode is a load error naming the specifier. Peer range is declared in
   `peerDependencies`.
 - **`hub op=send to="all"` now leaves the process** — broadcast reaches other terminals too.
-- **Agent Hub (`Alt+A`) lists hive peers** as `sub` rows. Their session is a forwarding stub, so
-  read and steer them via `hub` or `/hive` rather than focusing the row.
+- **Agent Hub (`Alt+A`) lists collective peers** as `sub` rows. Their session is a forwarding stub, so
+  read and steer them via `hub` or `/collective` rather than focusing the row.
 - A callsign equal to a local agent id (e.g. a subagent name, or `Main`) is skipped with a warning
   rather than shadowing the local peer.
 - Roster injection costs roughly one line per peer per model call; with no peers nothing is injected
