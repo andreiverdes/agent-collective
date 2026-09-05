@@ -1,0 +1,21 @@
+{
+  "name": "omp-hive",
+  "owner": {
+    "name": "Andrei Verdes"
+  },
+  "metadata": {
+    "description": "Cross-instance peer awareness and steering for omp",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "omp-hive",
+      "source": "./",
+      "version": "0.1.0",
+      "description": "Every running omp instance sees the others by callsign and can prompt them through the built-in hub tool.",
+      "category": "development",
+      "license": "MIT",
+      "keywords": ["multi-agent", "agent-coordination", "peer-discovery", "hub", "callsign"]
+    }
+  ]
+}

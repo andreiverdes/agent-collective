@@ -22,6 +22,17 @@ omp plugin install omp-hive
 
 Restart each omp instance you want in the hive (extensions load at session start).
 
+This repo also ships `.omp-plugin/marketplace.json`, so it works as a marketplace source:
+
+```sh
+omp plugin marketplace add <owner>/omp-hive
+omp plugin install omp-hive@omp-hive
+```
+
+Install it **one way only**. Two copies loaded in one process (for example an npm install plus a
+loose `~/.omp/agent/extensions/hive.ts`) means two hive nodes per instance: two records, two
+sockets, and peer refs claimed twice.
+
 ## Use
 
 | Input                | Effect                                                                       |
