@@ -1,4 +1,4 @@
-# omp-collective
+# agent-collective
 
 Cross-instance peer awareness and steering for [omp](https://www.npmjs.com/package/@oh-my-pi/pi-coding-agent)
 **and [pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)**.
@@ -31,13 +31,13 @@ The host is probed once at load, so one file serves both.
 omp:
 
 ```sh
-omp plugin install omp-collective
+omp plugin install agent-collective
 ```
 
 pi:
 
 ```sh
-pi install npm:omp-collective
+pi install npm:agent-collective
 ```
 
 Restart each instance you want in the collective (extensions load at session start).
@@ -45,8 +45,8 @@ Restart each instance you want in the collective (extensions load at session sta
 This repo also ships `.omp-plugin/marketplace.json`, so it works as an omp marketplace source:
 
 ```sh
-omp plugin marketplace add andreiverdes/omp-collective
-omp plugin install omp-collective@omp-collective
+omp plugin marketplace add andreiverdes/agent-collective
+omp plugin install agent-collective@agent-collective
 ```
 
 Install it **one way only**. Two copies loaded in one process (for example an npm install plus a
