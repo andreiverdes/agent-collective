@@ -40,6 +40,14 @@ const PEER_TIMEOUT_MS = 8_000;
 const MAX_CALLSIGN = 24;
 const MAX_STATUS_NAME = 12;
 const MAX_STATUS_WIDTH = 32;
+/**
+ * How far a chain of agent-to-agent messages may travel from the human prompt that started
+ * it. Each hop costs a real turn in a terminal nobody is watching, so the ceiling is low:
+ * enough for a question, an answer, and an acknowledgement, not enough for a runaway.
+ */
+const MAX_HOPS = 4;
+/** Burst window: messages from one peer arriving inside it become a single wake. */
+const COALESCE_MS = 400;
 
 /**
  * One directory for every harness on the machine — that is what lets omp and pi peer with
@@ -111,9 +119,17 @@ interface IrcMessageLike {
 	replyTo?: string;
 }
 
-/** Frame exchanged over a peer's unix socket, one JSON object per line. */
+/**
+ * Frame exchanged over a peer's unix socket, one JSON object per line.
+ *
+ * `hop` is the message's distance from the last human prompt: 0 for a message an agent sends
+ * on its own initiative, +1 for each agent-to-agent relay after that. It exists because
+ * mutual wake is a *behavioural* loop, not a transport loop — A wakes B, B's resulting turn
+ * wakes A, and every individual delivery is a legitimate single hop, so no transport-level
+ * guard ever trips. Absent (older peers) is treated as 0.
+ */
 type PeerFrame =
-	| { t: "msg"; from: string; body: string; replyTo?: string }
+	| { t: "msg"; from: string; body: string; replyTo?: string; hop?: number }
 	| { t: "ping"; from: string };
 
 interface PeerReply {
@@ -217,6 +233,10 @@ class CollectiveNode {
 	readonly #startedAt = Date.now();
 	/** Remote peers currently materialized in the local registry, keyed by callsign. */
 	readonly #peers = new Map<string, PeerRecord>();
+	/** Bodies accumulating inside the current burst window, keyed by sender. */
+	readonly #pending = new Map<string, { bodies: string[]; hop: number }>();
+	/** Hop count of the inbound message whose turn is currently running, if any. */
+	#inboundHop: number | undefined;
 	#override: string | undefined;
 	#callsign: string;
 	#server: net.Server | undefined;
@@ -468,7 +488,13 @@ class CollectiveNode {
 			subscribeRunState: () => () => undefined,
 			waitForIrcReplies: async () => [],
 			deliverIrcMessage: async msg => {
-				const reply = await this.#request(record, { t: "msg", from: this.#callsign, body: msg.body, replyTo: msg.replyTo });
+				const reply = await this.#request(record, {
+					t: "msg",
+					from: this.#callsign,
+					body: msg.body,
+					replyTo: msg.replyTo,
+					hop: this.#outboundHop(),
+				});
 				return reply?.outcome === "woken" ? "woken" : "injected";
 			},
 		};
@@ -495,10 +521,30 @@ class CollectiveNode {
 	async dispatch(callsign: string, body: string, replyTo?: string): Promise<string> {
 		const record = this.#peers.get(callsign);
 		if (!record) return `Unknown peer "${callsign}". Live peers: ${this.peers.map(p => p.callsign).join(", ") || "none"}`;
-		const reply = await this.#request(record, { t: "msg", from: this.#callsign, body, replyTo });
+		const reply = await this.#request(record, {
+			t: "msg",
+			from: this.#callsign,
+			body,
+			replyTo,
+			hop: this.#outboundHop(),
+		});
 		if (!reply) return `No response from ${callsign} (socket closed).`;
 		if (!reply.ok) return `Delivery to ${callsign} failed: ${reply.error ?? "unknown error"}`;
 		return `Delivered to ${callsign} (${reply.outcome ?? "injected"}). Its reply will arrive as a peer message.`;
+	}
+
+	/**
+	 * Hop count to stamp on an outbound message. A send made during a turn that a peer
+	 * message started inherits that message's distance from the human prompt; anything else
+	 * begins a fresh chain at 0.
+	 */
+	#outboundHop(): number {
+		return this.#inboundHop === undefined ? 0 : this.#inboundHop + 1;
+	}
+
+	/** A human prompt ends the current chain: the next agent-to-agent send starts over. */
+	resetLineage(): void {
+		this.#inboundHop = undefined;
 	}
 
 	#activityFor(record: PeerRecord): string {
@@ -565,10 +611,50 @@ class CollectiveNode {
 			socket.write(`${JSON.stringify({ ok: false, error: "unknown frame" })}\n`);
 			return;
 		}
+		const hop = typeof frame.hop === "number" && Number.isFinite(frame.hop) ? Math.max(0, Math.trunc(frame.hop)) : 0;
+		if (hop > MAX_HOPS) {
+			this.#ctx.ui.notify(
+				`collective: refused a message from ${frame.from} — hop ${hop} exceeds the ${MAX_HOPS}-hop chain limit`,
+				"warning",
+			);
+			socket.write(
+				`${JSON.stringify({
+					ok: false,
+					error: `Refused: this message is ${hop} hops from a human prompt and the limit is ${MAX_HOPS}. The chain has to end here — do not resend. Ask your user if it must continue.`,
+				})}\n`,
+			);
+			return;
+		}
+		/**
+		 * Coalesce a burst from one peer into a single wake. Each delivery to an idle agent
+		 * costs a real turn, so N messages must not mean N turns. The first frame waits out
+		 * a short window and then delivers everything that accumulated; later frames in the
+		 * window return immediately. An in-flight flag cannot do this job — delivery
+		 * resolves inside the same macrotask, so no second frame ever observes it.
+		 */
+		const pending = this.#pending.get(frame.from);
+		if (pending) {
+			pending.bodies.push(frame.body);
+			pending.hop = Math.min(pending.hop, hop);
+			socket.write(`${JSON.stringify({ ok: true, outcome: "coalesced" })}\n`);
+			return;
+		}
+		this.#pending.set(frame.from, { bodies: [frame.body], hop });
 		try {
-			const outcome = await this.#inject(frame);
+			const { promise, resolve } = Promise.withResolvers<void>();
+			const timer = setTimeout(resolve, COALESCE_MS);
+			timer.unref?.();
+			await promise;
+			const batch = this.#pending.get(frame.from) ?? { bodies: [frame.body], hop };
+			this.#pending.delete(frame.from);
+			const body =
+				batch.bodies.length === 1
+					? batch.bodies[0]
+					: `${batch.bodies.length} messages arrived together:\n\n${batch.bodies.map((entry, index) => `${index + 1}. ${entry}`).join("\n\n")}`;
+			const outcome = await this.#inject({ from: frame.from, body: body ?? "", replyTo: frame.replyTo, hop: batch.hop });
 			socket.write(`${JSON.stringify({ ok: true, outcome })}\n`);
 		} catch (error) {
+			this.#pending.delete(frame.from);
 			socket.write(`${JSON.stringify({ ok: false, error: error instanceof Error ? error.message : String(error) })}\n`);
 		}
 	}
@@ -585,8 +671,15 @@ class CollectiveNode {
 	 * idle send starts a turn (the wake) and a mid-turn send has to steer — which does
 	 * interrupt the running tool batch, unlike bridge mode.
 	 */
-	async #inject(frame: { from: string; body: string; replyTo?: string }): Promise<"injected" | "woken"> {
-		const text = `[collective] message from peer \`${frame.from}\`${frame.replyTo ? " (a reply)" : ""}:\n\n${frame.body}\n\nReply with the \`${bridge ? "hub" : "peer_send"}\` tool addressed to \`${frame.from}\` if a response is useful.`;
+	async #inject(frame: { from: string; body: string; replyTo?: string; hop: number }): Promise<"injected" | "woken"> {
+		// Any send the resulting turn makes inherits this distance from the human prompt.
+		this.#inboundHop = frame.hop;
+		const remaining = MAX_HOPS - frame.hop;
+		const budget =
+			remaining <= 1
+				? " This chain is at its last hop, so answer your user rather than relaying further."
+				: ` ${remaining} relay hops remain in this chain.`;
+		const text = `[collective] message from peer \`${frame.from}\`${frame.replyTo ? " (a reply)" : ""}:\n\n${frame.body}\n\nReply with the \`${bridge ? "hub" : "peer_send"}\` tool addressed to \`${frame.from}\` if a response is useful.${budget}`;
 		if (!bridge) {
 			const idle = this.#ctx.isIdle();
 			this.#pi.sendUserMessage(text, idle ? undefined : { deliverAs: "steer" });
@@ -623,6 +716,17 @@ export default function collective(pi: CollectivePi): void {
 	pi.on("session_shutdown", async () => {
 		node?.stop();
 		node = undefined;
+	});
+
+	/**
+	 * A prompt the human typed starts a fresh chain, so the hop counter resets. Extension
+	 * sends are excluded: an inbound peer message arrives that way, and treating it as
+	 * human input would zero the counter on every relay and defeat the guard.
+	 */
+	pi.on("input", async event => {
+		const { source } = event as { source?: string };
+		if (source === "extension") return;
+		node?.resetLineage();
 	});
 
 	/**

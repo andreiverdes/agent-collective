@@ -117,8 +117,14 @@ Name collisions deconflict by start time: the older instance keeps the bare name
   stub, so read and steer them via `hub` or `/collective` rather than focusing the row.
 - A callsign equal to a local agent id (a subagent name, or `Main`) is skipped with a warning rather
   than shadowing the local peer.
-- **No mutual-wake guard yet.** Two peers that wake each other will keep doing so; nothing counts
-  hops or coalesces pending wakes. Each wake is a billed turn in an unwatched session.
+- **Chains stop at 4 hops.** Every message carries its distance from the human prompt that started
+  the chain; past the limit, delivery is refused with an explicit error telling the sender the chain
+  ends there, and a local warning is shown. A human prompt resets the count. This exists because
+  mutual wake is a *behavioural* loop — A wakes B, B's turn wakes A — where each delivery is a
+  legitimate single hop, so no transport-level guard trips. Raise or lower `MAX_HOPS` in `index.ts`
+  if 4 is wrong for you.
+- **Bursts become one wake.** Messages from one peer arriving within 400 ms are delivered as a single
+  numbered batch, so N messages cost one turn rather than N.
 - Roster injection costs roughly one line per peer per model call; with no peers nothing is injected
   and no status chip is shown.
 
