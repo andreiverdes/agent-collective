@@ -1,7 +1,7 @@
 {
   "name": "omp-collective",
-  "version": "0.1.0",
-  "description": "Cross-instance peer awareness and steering for omp: every running instance sees the others by callsign and can prompt them through the built-in hub tool.",
+  "version": "0.2.0",
+  "description": "Cross-instance peer awareness and steering for omp and pi: every running instance sees the others by callsign and can prompt them \u2014 natively through omp's hub tool, or via peers/peer_send tools on pi.",
   "type": "module",
   "main": "./index.ts",
   "exports": {
@@ -18,18 +18,19 @@
     "package:dry-run": "npm pack --dry-run"
   },
   "keywords": [
+    "agent-coordination",
+    "callsign",
+    "coding-agent",
+    "cross-harness",
+    "hub",
+    "irc",
+    "multi-agent",
     "omp",
     "omp-extension",
-    "pi",
-    "pi-extension",
-    "pi-coding-agent",
-    "coding-agent",
-    "multi-agent",
-    "agent-coordination",
     "peer-discovery",
-    "irc",
-    "hub",
-    "callsign"
+    "pi",
+    "pi-coding-agent",
+    "pi-extension"
   ],
   "license": "MIT",
   "engines": {
@@ -44,7 +45,8 @@
     ]
   },
   "peerDependencies": {
-    "@oh-my-pi/pi-coding-agent": ">=18.1.0 <19.0.0"
+    "@oh-my-pi/pi-coding-agent": ">=18.1.0 <19.0.0",
+    "@earendil-works/pi-coding-agent": ">=0.80.0"
   },
   "repository": {
     "type": "git",
@@ -54,5 +56,18 @@
     "url": "https://github.com/andreiverdes/omp-collective/issues"
   },
   "homepage": "https://github.com/andreiverdes/omp-collective#readme",
-  "author": "andreiverdes (https://github.com/andreiverdes)"
+  "author": "andreiverdes (https://github.com/andreiverdes)",
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "peerDependenciesMeta": {
+    "@oh-my-pi/pi-coding-agent": {
+      "optional": true
+    },
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    }
+  }
 }
