@@ -1,0 +1,49 @@
+{
+  "name": "omp-hive",
+  "version": "0.1.0",
+  "description": "Cross-instance peer awareness and steering for omp: every running instance sees the others by callsign and can prompt them through the built-in hub tool.",
+  "type": "module",
+  "main": "./index.ts",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "files": [
+    "index.ts",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "typecheck": "npx --yes -p typescript@5.7.3 tsc --noEmit --strict --skipLibCheck --module esnext --target es2022 --moduleResolution bundler index.ts",
+    "package:dry-run": "npm pack --dry-run"
+  },
+  "keywords": [
+    "omp",
+    "omp-extension",
+    "pi",
+    "pi-extension",
+    "pi-coding-agent",
+    "coding-agent",
+    "multi-agent",
+    "agent-coordination",
+    "peer-discovery",
+    "irc",
+    "hub",
+    "callsign"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "omp": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@oh-my-pi/pi-coding-agent": ">=18.1.0 <19.0.0"
+  }
+}
