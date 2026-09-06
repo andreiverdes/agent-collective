@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.1
+
+- Fixed `collective: not started`. The node was created only inside `session_start`, so any path
+  where that handler did not run for the live session — the module loaded after the session began
+  (an install plus `/reload-plugins`), or a session replaced inside the process — left the commands
+  registered with nothing behind them until the process restarted. Every entry point now starts the
+  node on demand: `session_start`, `session_switch` / `session_branch` / `session_tree`, the
+  `context` event before each model call, and both commands.
+- A failed start now reports the actual error instead of silently leaving the instance out of the
+  collective.
+- `/collective` names the active mode (`hub bridge` or `peer tools`) and each peer's harness.
+
 ## 0.3.0
 
 - Mutual-wake guard. Every message carries a `hop` count — its distance from the human prompt that

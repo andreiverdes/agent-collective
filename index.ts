@@ -225,6 +225,31 @@ interface CollectivePi {
 /** One collective node per process, even when several sessions load the extension. */
 let node: CollectiveNode | undefined;
 
+/**
+ * Get the live node, starting one if this process has none.
+ *
+ * Creating the node only inside `session_start` was a latent failure: any path where that
+ * handler does not run for the session actually in front of the user — the module loaded
+ * after the session began (an install plus `/reload-plugins`), or a session replaced within
+ * the process — left the commands registered with nothing behind them, reporting
+ * "collective: not started" until the process restarted. Every entry point re-arms instead,
+ * so the node exists as soon as anything asks for it.
+ */
+function ensureNode(pi: CollectivePi, ctx: CollectiveContext): CollectiveNode | undefined {
+	if (node && !node.stopped) return node;
+	try {
+		const started = new CollectiveNode(pi, ctx);
+		started.start();
+		node = started;
+		return node;
+	} catch (error) {
+		node = undefined;
+		pi.logger?.warn(`collective: could not start (${String(error)})`);
+		ctx.ui.notify(`collective: could not start — ${error instanceof Error ? error.message : String(error)}`, "warning");
+		return undefined;
+	}
+}
+
 class CollectiveNode {
 	readonly #pi: CollectivePi;
 	readonly #ctx: CollectiveContext;
@@ -251,6 +276,10 @@ class CollectiveNode {
 
 	get callsign(): string {
 		return this.#callsign;
+	}
+
+	get stopped(): boolean {
+		return this.#stopped;
 	}
 
 	get peers(): PeerRecord[] {
@@ -708,15 +737,21 @@ class CollectiveNode {
 
 export default function collective(pi: CollectivePi): void {
 	pi.on("session_start", async (_event, ctx) => {
-		if (node) return;
-		node = new CollectiveNode(pi, ctx);
-		node.start();
+		ensureNode(pi, ctx);
 	});
 
+	// A session replaced inside this process (`/new`, `/resume`, `/fork`, `/switch`) tears the
+	// node down with its session; the next handler or command re-arms it against the new one.
 	pi.on("session_shutdown", async () => {
 		node?.stop();
 		node = undefined;
 	});
+
+	for (const event of ["session_switch", "session_branch", "session_tree"]) {
+		pi.on(event, async (_payload, ctx) => {
+			ensureNode(pi, ctx);
+		});
+	}
 
 	/**
 	 * A prompt the human typed starts a fresh chain, so the hop counter resets. Extension
@@ -736,9 +771,11 @@ export default function collective(pi: CollectivePi): void {
 	 * that never reaches the transcript, and appending to the last user message keeps
 	 * provider role alternation and the cached prompt prefix intact.
 	 */
-	pi.on("context", async event => {
-		const peers = node?.peers ?? [];
-		if (!node || peers.length === 0) return;
+	pi.on("context", async (event, ctx) => {
+		// Runs before every model call, so it doubles as the reliable re-arm point.
+		const live = ensureNode(pi, ctx);
+		const peers = live?.peers ?? [];
+		if (!live || peers.length === 0) return;
 		const roster = peers
 			.map(
 				peer =>
@@ -777,33 +814,32 @@ export default function collective(pi: CollectivePi): void {
 	pi.registerCommand("callsign", {
 		description: "Show or set this instance's collective callsign",
 		handler: async (args, ctx) => {
-			if (!node) {
-				ctx.ui.notify("collective: not started", "warning");
-				return;
-			}
+			const live = ensureNode(pi, ctx);
+			if (!live) return;
 			const name = args.trim();
 			if (name.length === 0) {
-				ctx.ui.notify(`collective callsign: ${node.callsign}`, "info");
+				ctx.ui.notify(`collective callsign: ${live.callsign}`, "info");
 				return;
 			}
-			ctx.ui.notify(`collective callsign: ${node.setOverride(name)}`, "info");
+			ctx.ui.notify(`collective callsign: ${live.setOverride(name)}`, "info");
 		},
 	});
 
 	pi.registerCommand("collective", {
-		description: "List live omp instances on this machine",
+		description: "List live agent instances on this machine",
 		handler: async (_args, ctx) => {
-			if (!node) {
-				ctx.ui.notify("collective: not started", "warning");
-				return;
-			}
-			const peers = node.peers;
+			const live = ensureNode(pi, ctx);
+			if (!live) return;
+			const peers = live.peers;
+			const mode = bridge ? "hub bridge" : "peer tools";
 			if (peers.length === 0) {
-				ctx.ui.notify(`collective: ${node.callsign} (no peers)`, "info");
+				ctx.ui.notify(`collective: ${live.callsign} via ${mode} — no peers`, "info");
 				return;
 			}
-			const lines = peers.map(peer => `${peer.callsign} — pid ${peer.pid} · ${peer.cwd}${peer.busy ? " · working" : ""}`);
-			ctx.ui.notify(`collective: ${node.callsign}\n${lines.join("\n")}`, "info");
+			const lines = peers.map(
+				peer => `${peer.callsign} — ${peer.via}, pid ${peer.pid} · ${peer.cwd}${peer.busy ? " · working" : ""}`,
+			);
+			ctx.ui.notify(`collective: ${live.callsign} via ${mode}\n${lines.join("\n")}`, "info");
 		},
 	});
 
@@ -848,7 +884,9 @@ export default function collective(pi: CollectivePi): void {
 				additionalProperties: false,
 			},
 			execute: async (_toolCallId, params) => {
-				if (!node) return { content: [{ type: "text", text: "collective: not started" }] };
+				if (!node || node.stopped) {
+					return { content: [{ type: "text", text: "The collective node is not running in this process; run /collective to start it." }] };
+				}
 				const to = typeof params.to === "string" ? params.to.trim() : "";
 				const message = typeof params.message === "string" ? params.message.trim() : "";
 				if (!to || !message) {

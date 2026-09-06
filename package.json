@@ -1,6 +1,6 @@
 {
   "name": "agent-collective",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Cross-instance peer awareness and steering for omp and pi: every running instance sees the others by callsign and can prompt them \u2014 natively through omp's hub tool, or via peers/peer_send tools on pi.",
   "type": "module",
   "main": "./index.ts",
