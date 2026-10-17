@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.4.0
+
+Breaking: records moved into per-profile directories, so 0.3.x and 0.4 sessions do not see each
+other. Restart every session after upgrading.
+
+- **Scoped by omp profile.** The registry is `~/.agent-collective/<profile>/`, from `OMP_PROFILE` /
+  `PI_PROFILE` (`default` when unset; always `default` on pi). Profiles never see each other.
+- **Fixed sessions becoming unreachable after sleep or a long stall.** Any peer whose heartbeat was
+  more than 6 s old had its record *and socket* deleted by whichever peer looked first; the paused
+  process kept listening on a deleted path and rewrote its record on resume, so it looked live but
+  could never be reached. Now only a dead process's files are removed; each process checks its own
+  socket every 5 s and re-binds it (temp path + atomic rename) if it is missing or replaced; and a
+  sender waits up to 7 s for a live peer's socket to come back before failing.
+- **Silent presence.** No 1.2 s heartbeat, no reading other records until a tool asks, no "joined" /
+  "left" notifications. Records are written at start, on rename, and at turn start/end.
+- **Need-to-know.** The roster is no longer injected into prompts. The footer chip shows only this
+  session's contacts (peers it has messaged or heard from), persisted per session id. `peers` takes
+  an optional `filter` and lists contacts first; `peer_send` accepts `@name`. Inbound messages name
+  the recipient's own callsign.
+- **One tool surface on omp and pi.** The omp `hub` bridge is gone: on omp 18.11 it registered peers
+  in a module copy the host never reads, so it had silently fallen back to tools anyway, and its
+  stub reported failed sends as delivered. omp sessions are labelled `omp` again (harness was
+  derived from the bridge). A busy omp peer receives an aside; a busy pi peer a steer.
+- `npm test`: acceptance suite with real processes and sockets — profile isolation, silence,
+  contacts, aside delivery, hop guard, stall/resume, deleted-socket heal, dead-peer reaping.
+
 ## 0.3.2
 
 - Fixed the hop guard refusing ordinary traffic in busy, long-running instances. The node kept one

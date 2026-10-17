@@ -4,15 +4,15 @@
     "name": "Andrei Verdes"
   },
   "metadata": {
-    "description": "Cross-instance peer awareness and steering for omp",
-    "version": "0.1.0"
+    "description": "Peer messaging between omp and pi sessions, scoped per omp profile",
+    "version": "0.4.0"
   },
   "plugins": [
     {
       "name": "agent-collective",
       "source": "./",
-      "version": "0.3.2",
-      "description": "Every running omp instance sees the others by callsign and can prompt them through the built-in hub tool.",
+      "version": "0.4.0",
+      "description": "Sessions in the same omp profile find each other on demand by callsign and prompt each other with the peers / peer_send tools.",
       "category": "development",
       "license": "MIT",
       "keywords": ["multi-agent", "agent-coordination", "peer-discovery", "hub", "callsign"]
