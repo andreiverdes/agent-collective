@@ -23,6 +23,7 @@
  *   - The host rewrites its own package specifiers with an `onResolve` hook scoped to the
  *     extension's load pass, so only *literal* specifiers resolve in dynamic imports.
  */
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import net from "node:net";
 import os from "node:os";
@@ -40,6 +41,8 @@ const QUIET_MS = 5 * 60_000;
 const HEAL_WAIT_MS = CHECK_MS + 2_000;
 const PEER_TIMEOUT_MS = 8_000;
 const MAX_CALLSIGN = 24;
+/** An unreadable claim younger than this is mid-write, not corrupt. */
+const CLAIM_WRITE_GRACE_MS = 10_000;
 const MAX_STATUS_NAME = 12;
 const MAX_STATUS_WIDTH = 32;
 /**
@@ -183,6 +186,67 @@ function pidAlive(pid: number): boolean {
 	}
 }
 
+/**
+ * The OS start time of `pid`. With the pid it identifies one process, so a claim left by a
+ * crashed session is not mistaken for live when its pid has been reused. Undefined when `ps`
+ * is unavailable; callers then fall back to the pid alone.
+ */
+function processStart(pid: number): string | undefined {
+	try {
+		const out = execFileSync("ps", ["-o", "lstart=", "-p", String(pid)], {
+			encoding: "utf8",
+			env: { ...process.env, LC_ALL: "C" },
+			stdio: ["ignore", "pipe", "ignore"],
+		}).trim();
+		return out.length > 0 ? out : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+/** Contents of `names/<callsign>`: which process holds that callsign. */
+interface NameClaim {
+	pid: number;
+	start?: string;
+	sessionId?: string;
+}
+
+/** A claim file's owner, `"missing"`, or `"unreadable"` (mid-write, or left corrupt by a crash). */
+function readClaim(file: string): NameClaim | "missing" | "unreadable" {
+	let text: string;
+	try {
+		text = fs.readFileSync(file, "utf8");
+	} catch {
+		return "missing";
+	}
+	try {
+		const claim = JSON.parse(text) as NameClaim;
+		return typeof claim.pid === "number" ? claim : "unreadable";
+	} catch {
+		return "unreadable";
+	}
+}
+
+/**
+ * Prefix of automatic callsigns: `<dir>-001`, `<dir>-002`, … Every session in a collective
+ * shares its profile, so the working directory is what tells sessions apart at a glance.
+ */
+function autoPrefix(cwd: string): string {
+	const base = path
+		.basename(cwd)
+		.replace(/[^\w.-]+/gu, "-")
+		.replace(/^[^A-Za-z0-9_]+/u, "")
+		.slice(0, 20);
+	return base.length > 0 ? base : "session";
+}
+
+/** Per-session state that survives restart and resume. */
+interface SessionState {
+	callsign?: string;
+	override?: string;
+	contacts?: string[];
+}
+
 class CollectiveNode {
 	readonly #pi: CollectivePi;
 	readonly #ctx: CollectiveContext;
@@ -209,11 +273,18 @@ class CollectiveNode {
 	readonly #peerHops = new Map<string, number>();
 	/** Peers this session has messaged or heard from; the only peers it surfaces unprompted. */
 	readonly #contacts = new Set<string>();
-	readonly #contactsPath: string | undefined;
+	/** `names/<callsign>` claim files: one file per held callsign, created exclusively. */
+	readonly #namesDir = path.join(this.#dir, "names");
+	readonly #sessionId: string | undefined;
+	/** `sessions/<session-id>.json`; undefined when the host reports no usable session id. */
+	readonly #statePath: string | undefined;
+	readonly #processStart = processStart(process.pid);
+	/** Callsign restored from this session's state, reclaimed first so a resumed session keeps its address. */
+	#remembered: string | undefined;
 	#override: string | undefined;
-	#callsign: string;
-	/** The candidate last resolved, so a clash scan runs only when the name actually changes. */
-	#candidate: string | undefined;
+	#callsign = "";
+	/** What the last allocation asked for ("" = automatic), so a `/rename` is noticed. */
+	#allocatedFor: string | undefined;
 	#busy = false;
 	#server: net.Server | undefined;
 	/** Inode of the socket file this process bound; anything else at the path is not ours. */
@@ -228,10 +299,9 @@ class CollectiveNode {
 		this.#pi = pi;
 		this.#ctx = ctx;
 		this.#via = ctx.setInterval && ctx.clearTimer ? "omp" : "pi";
-		this.#callsign = `${path.basename(ctx.cwd)}-${process.pid}`.slice(0, MAX_CALLSIGN);
 		const sessionId = ctx.sessionManager.getSessionId();
-		this.#contactsPath =
-			sessionId && /^[\w.-]+$/u.test(sessionId) ? path.join(this.#dir, "contacts", `${sessionId}.json`) : undefined;
+		this.#sessionId = sessionId && /^[\w.-]+$/u.test(sessionId) ? sessionId : undefined;
+		this.#statePath = this.#sessionId ? path.join(this.#dir, "sessions", `${this.#sessionId}.json`) : undefined;
 	}
 
 	get callsign(): string {
@@ -247,10 +317,10 @@ class CollectiveNode {
 	}
 
 	start(): void {
-		fs.mkdirSync(this.#dir, { recursive: true, mode: 0o700 });
-		this.#loadContacts();
+		fs.mkdirSync(this.#namesDir, { recursive: true, mode: 0o700 });
+		this.#loadState();
 		this.#bind();
-		this.#resolveCallsign();
+		this.#allocate();
 		this.#writeRecord();
 		this.#renderStatus();
 		if (this.#ctx.setInterval && this.#ctx.clearTimer) {
@@ -279,12 +349,15 @@ class CollectiveNode {
 		this.#server?.close();
 		if (this.#ownsSocket()) fs.rmSync(this.#socketPath, { force: true });
 		fs.rmSync(this.#recordPath, { force: true });
+		this.#release(this.#callsign);
 		this.#ctx.ui.setStatus("collective", undefined);
 	}
 
+	/** `/callsign`: remembered for this session, so it survives restart and resume. */
 	setOverride(name: string): string {
 		this.#override = name.length > 0 ? name : undefined;
-		if (this.#resolveCallsign()) this.#writeRecord();
+		if (this.#allocate()) this.#writeRecord();
+		this.#saveState();
 		return this.#callsign;
 	}
 
@@ -296,14 +369,17 @@ class CollectiveNode {
 	}
 
 	/**
-	 * Periodic self-check: one `stat` of our own socket, nothing about anyone else. Re-binds
-	 * when the socket file is gone or replaced; picks up a `/rename` within one period; and
-	 * refreshes the record about once a minute so `peers` can say how recent it is.
+	 * Periodic self-check, touching only this process's own files: re-binds the socket when
+	 * its file is gone or replaced; re-allocates the callsign after a `/rename`, or if the
+	 * claim file no longer names this process; and refreshes the record about once a minute
+	 * so `peers` can say how recent it is.
 	 */
 	#check(): void {
 		if (this.#stopped) return;
 		this.#checks += 1;
-		const renamed = this.#resolveCallsign();
+		const owner = readClaim(path.join(this.#namesDir, this.#callsign));
+		const displaced = typeof owner !== "object" || owner.pid !== process.pid;
+		const renamed = ((this.#wantedName() ?? "") !== this.#allocatedFor || displaced) && this.#allocate();
 		const healed = !this.#ownsSocket() && this.#bind();
 		const recordMissing = !fs.existsSync(this.#recordPath);
 		if (renamed || healed || recordMissing || this.#checks % REFRESH_CHECKS === 0) this.#writeRecord();
@@ -384,18 +460,16 @@ class CollectiveNode {
 	}
 
 	/**
-	 * A callsign is an address, so it must be stable and deliberate.
+	 * The callsign this session asks for by name, or undefined for an automatic one.
 	 *
 	 * `/callsign` always wins. A session name is adopted only when the host reports the
 	 * title as user-set (omp's `titleSource`), because an auto-generated title is a
 	 * model-written sentence that `title.refreshOnReplan` rewrites mid-session — adopting
-	 * it would rename the instance and break every peer's addressing. pi reports no title
+	 * it would rename the session and break every peer's addressing. pi reports no title
 	 * source, so there the name is adopted only when it already looks like an address:
 	 * one token, no whitespace, within the length cap.
-	 *
-	 * Returns true when the callsign changed.
 	 */
-	#resolveCallsign(): boolean {
+	#wantedName(): string | undefined {
 		const source = this.#ctx.sessionManager.getHeader?.()?.titleSource;
 		const sessionName = this.#pi.getSessionName();
 		const adoptable =
@@ -406,17 +480,140 @@ class CollectiveNode {
 			.replace(/\s+/gu, "-")
 			.replace(/[^\w.-]/gu, "")
 			.slice(0, MAX_CALLSIGN);
-		const candidate = cleaned.length > 0 ? cleaned : `${path.basename(this.#ctx.cwd)}-${process.pid}`.slice(0, MAX_CALLSIGN);
-		if (candidate === this.#candidate) return false;
-		this.#candidate = candidate;
-		// Two instances may carry the same name; the older one keeps the bare form.
-		const clash = this.#readRecords().some(
-			other => other.pid !== process.pid && other.callsign === candidate && other.startedAt <= this.#startedAt,
-		);
-		const next = clash ? `${candidate}-${process.pid}`.slice(0, MAX_CALLSIGN + 8) : candidate;
-		const changed = next !== this.#callsign;
+		// A leading word character keeps `.`, `..` and the claim directory's own dot-files out.
+		return /^\w/u.test(cleaned) ? cleaned : undefined;
+	}
+
+	/**
+	 * Settle this session's callsign, returning true when it changed.
+	 *
+	 * A named session takes exactly its name, or `<name>-002`, `<name>-003`, … when a live
+	 * session already holds it. An unnamed session takes back the callsign it had before a
+	 * restart if that is free, else the lowest free `<dir>-NNN`. Every candidate goes through
+	 * an exclusive claim, so two sessions can never hold the same callsign.
+	 */
+	#allocate(): boolean {
+		const wanted = this.#wantedName();
+		this.#allocatedFor = wanted ?? "";
+		const previous = this.#callsign;
+		// A suffixed callsign this session already holds, or held before a restart, is kept
+		// rather than moving it to a new number.
+		const ownNumbered = (prefix: string): string | undefined =>
+			[previous, this.#remembered].find(
+				name => name !== undefined && name.startsWith(`${prefix}-`) && /^\d{3,}$/u.test(name.slice(prefix.length + 1)) && this.#claim(name),
+			);
+		let next: string;
+		if (wanted !== undefined) {
+			const kept = this.#claim(wanted) ? wanted : ownNumbered(wanted);
+			next = kept ?? this.#claimNumbered(wanted, 2);
+			if (kept === undefined) {
+				this.#ctx.ui.notify(`collective: "${wanted}" is held by another session; this one is ${next}`, "warning");
+			}
+		} else {
+			const prefix = autoPrefix(this.#ctx.cwd);
+			next = ownNumbered(prefix) ?? this.#claimNumbered(prefix, 1);
+		}
+		if (previous !== "" && previous !== next) this.#release(previous);
 		this.#callsign = next;
-		return changed;
+		this.#remembered = next;
+		if (previous !== next) this.#saveState();
+		return previous !== next;
+	}
+
+	/** The lowest `<prefix>-NNN` (from `first`) that this process manages to claim. */
+	#claimNumbered(prefix: string, first: number): string {
+		for (let attempt = 0; attempt < 50; attempt += 1) {
+			const taken = new Set<number>();
+			let entries: string[] = [];
+			try {
+				entries = fs.readdirSync(this.#namesDir);
+			} catch {
+				// No claims yet.
+			}
+			for (const entry of entries) {
+				const suffix = entry.startsWith(`${prefix}-`) ? entry.slice(prefix.length + 1) : "";
+				if (!/^\d{3,}$/u.test(suffix)) continue;
+				const owner = readClaim(path.join(this.#namesDir, entry));
+				// Cheap scan: a dead pid frees the number; `#claim` settles pid reuse exactly.
+				if (owner === "unreadable" || (typeof owner === "object" && pidAlive(owner.pid))) taken.add(Number(suffix));
+			}
+			let number = first;
+			while (taken.has(number)) number += 1;
+			const name = `${prefix}-${String(number).padStart(3, "0")}`;
+			if (this.#claim(name)) return name;
+		}
+		throw new Error(`could not claim a callsign starting with "${prefix}"`);
+	}
+
+	/** True when `names/<name>` currently names this process. */
+	#holds(name: string): boolean {
+		const owner = readClaim(path.join(this.#namesDir, name));
+		return typeof owner === "object" && owner.pid === process.pid;
+	}
+
+	/**
+	 * Take `names/<name>` for this process, or report it held. The create is exclusive
+	 * (`wx`), which is the whole collision guarantee. A claim whose owner is gone is taken
+	 * over by renaming it aside first — rename is atomic, so of several sessions racing for
+	 * the same stale name exactly one moves it, and the rest fall back to the exclusive create.
+	 */
+	#claim(name: string): boolean {
+		const file = path.join(this.#namesDir, name);
+		const mine: NameClaim = { pid: process.pid, start: this.#processStart, sessionId: this.#sessionId };
+		for (let attempt = 0; attempt < 4; attempt += 1) {
+			try {
+				fs.writeFileSync(file, JSON.stringify(mine), { flag: "wx", mode: 0o600 });
+				return true;
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+			}
+			const owner = readClaim(file);
+			if (owner === "missing") continue;
+			if (owner === "unreadable") {
+				let age = 0;
+				try {
+					age = Date.now() - fs.statSync(file).mtimeMs;
+				} catch {
+					continue;
+				}
+				if (age < CLAIM_WRITE_GRACE_MS) return false;
+			} else {
+				if (owner.pid === process.pid) return true;
+				if (this.#claimLive(owner)) return false;
+			}
+			const aside = path.join(this.#namesDir, `.stale-${process.pid}-${Date.now()}-${attempt}`);
+			try {
+				fs.renameSync(file, aside);
+			} catch {
+				continue;
+			}
+			// Between reading the stale owner and the rename, another session may have taken the
+			// name; if what moved is a live claim, put it back rather than steal it.
+			const moved = readClaim(aside);
+			if (typeof moved === "object" && moved.pid !== process.pid && this.#claimLive(moved)) {
+				try {
+					fs.linkSync(aside, file);
+				} catch {
+					// Someone created the name meanwhile; the displaced owner re-allocates on its next check.
+				}
+				fs.rmSync(aside, { force: true });
+				return false;
+			}
+			fs.rmSync(aside, { force: true });
+		}
+		return false;
+	}
+
+	/** A claim is live while its pid exists and, when both sides know it, its start time matches. */
+	#claimLive(owner: NameClaim): boolean {
+		if (!pidAlive(owner.pid)) return false;
+		if (owner.start === undefined || this.#processStart === undefined) return true;
+		return processStart(owner.pid) === owner.start;
+	}
+
+	/** Give up `name` if this process still holds it. */
+	#release(name: string): void {
+		if (name !== "" && this.#holds(name)) fs.rmSync(path.join(this.#namesDir, name), { force: true });
 	}
 
 	/**
@@ -471,7 +668,15 @@ class CollectiveNode {
 
 	async dispatch(callsign: string, body: string, replyTo?: string): Promise<string> {
 		const peers = this.#readRecords().filter(record => record.pid !== process.pid);
-		const record = peers.find(peer => peer.callsign === callsign);
+		// The claim file is the single source of truth for who holds a callsign; records only
+		// carry a copy. Records are matched by name alone for peers on 0.4.0, which wrote no claims.
+		const owner = readClaim(path.join(this.#namesDir, callsign));
+		const record =
+			typeof owner === "object"
+				? peers.find(peer => peer.pid === owner.pid)
+				: owner === "missing"
+					? peers.find(peer => peer.callsign === callsign)
+					: undefined;
 		if (!record) {
 			const needle = callsign.toLowerCase();
 			const close = peers.map(peer => peer.callsign).filter(name => name.toLowerCase().includes(needle));
@@ -552,13 +757,27 @@ class CollectiveNode {
 		return promise;
 	}
 
-	#loadContacts(): void {
-		if (!this.#contactsPath) return;
+	#loadState(): void {
+		if (!this.#statePath) return;
+		let saved: SessionState;
 		try {
-			const saved = JSON.parse(fs.readFileSync(this.#contactsPath, "utf8")) as unknown;
-			if (Array.isArray(saved)) for (const name of saved) if (typeof name === "string") this.#contacts.add(name);
+			saved = JSON.parse(fs.readFileSync(this.#statePath, "utf8")) as SessionState;
 		} catch {
-			// No contacts yet for this session.
+			return;
+		}
+		if (typeof saved.callsign === "string") this.#remembered = saved.callsign;
+		if (typeof saved.override === "string") this.#override = saved.override;
+		if (Array.isArray(saved.contacts)) for (const name of saved.contacts) if (typeof name === "string") this.#contacts.add(name);
+	}
+
+	#saveState(): void {
+		if (!this.#statePath) return;
+		const state: SessionState = { callsign: this.#callsign, override: this.#override, contacts: [...this.#contacts] };
+		try {
+			fs.mkdirSync(path.dirname(this.#statePath), { recursive: true, mode: 0o700 });
+			fs.writeFileSync(this.#statePath, `${JSON.stringify(state)}\n`, { mode: 0o600 });
+		} catch (error) {
+			this.#pi.logger?.warn(`collective: could not save session state: ${String(error)}`);
 		}
 	}
 
@@ -566,13 +785,7 @@ class CollectiveNode {
 		if (this.#contacts.has(callsign)) return;
 		this.#contacts.add(callsign);
 		this.#renderStatus();
-		if (!this.#contactsPath) return;
-		try {
-			fs.mkdirSync(path.dirname(this.#contactsPath), { recursive: true, mode: 0o700 });
-			fs.writeFileSync(this.#contactsPath, `${JSON.stringify([...this.#contacts])}\n`, { mode: 0o600 });
-		} catch (error) {
-			this.#pi.logger?.warn(`collective: could not save contacts: ${String(error)}`);
-		}
+		this.#saveState();
 	}
 
 	/** Footer chip: this session's contacts only — never the whole collective. */

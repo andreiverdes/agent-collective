@@ -62,17 +62,26 @@ interrupt its running tool batch; a busy pi peer is steered (pi has no aside).
 
 ### Callsigns
 
-Resolution order: `/callsign` override → the session name, when it is safe to adopt →
-`<project>-<pid>`.
+Unnamed sessions are numbered by directory: the first unnamed session in `be-audio/` is
+`be-audio-001`, the next `be-audio-002`, and so on. The lowest free number is used, and a session
+that is restarted or resumed takes back the number it had if it is still free.
 
-"Safe to adopt" means the host reports the title as user-set (`/rename`, RPC). A callsign is an
-address, and an auto-generated title is a model-written sentence that `title.refreshOnReplan`
-rewrites mid-session — adopting it would rename a session and break every peer's addressing. pi
-exposes no title source, so there a session name is adopted only when it already looks like an
-address: one token, no whitespace, within the length cap. A `/rename` is picked up within 5 s.
+Name a session to choose its callsign: `/rename be-audio` (saved as the session title) or
+`/callsign be-audio` (callsign only, remembered for that session). If a live session already holds
+the name, the newcomer becomes `be-audio-002` and is told so; the first holder keeps the plain
+name.
 
-Name collisions deconflict by start time: the older session keeps the bare name, the younger gets a
-`-<pid>` suffix.
+A session name is adopted only when the host reports the title as user-set (`/rename`, RPC). A
+callsign is an address, and an auto-generated title is a model-written sentence that
+`title.refreshOnReplan` rewrites mid-session — adopting it would rename a session and break every
+peer's addressing. pi exposes no title source, so there a session name is adopted only when it
+already looks like an address: one token, no whitespace, within the length cap. A `/rename` is
+picked up within 5 s.
+
+No two live sessions in a collective ever share a callsign: each one is a claim file under
+`names/`, created with an exclusive open, so of any number of sessions starting at once exactly one
+gets each name. A claim left behind by a crashed session is reclaimed once its process is gone
+(checked by pid and process start time, so a reused pid does not keep it).
 
 ## How it works
 
@@ -85,7 +94,8 @@ Name collisions deconflict by start time: the older session keeps the bare name,
 - Every 5 s each process `stat`s its own socket. If the file is missing or is not the one it bound,
   it binds a fresh temporary path and renames it into place. A sender that hits a missing or
   refusing socket on a live peer waits up to 7 s for it to re-appear and retries once.
-- Contacts live in `~/.agent-collective/<profile>/contacts/<session-id>.json`.
+- Per-session state (callsign, `/callsign` override, contacts) lives in
+  `~/.agent-collective/<profile>/sessions/<session-id>.json`.
 
 ## Limits
 

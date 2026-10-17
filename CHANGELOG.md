@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.1
+
+- **Memorable callsigns.** Unnamed sessions are `<dir>-001`, `<dir>-002`, … (lowest free number)
+  instead of `<dir>-<pid>`, and a restarted or resumed session takes back its number when free. A
+  name already held becomes `<name>-002` (was `<name>-<pid>`), with a notice explaining why.
+- **Callsigns can no longer collide.** 0.4.0 checked for a clash only when a session's own name
+  changed, so an older session renaming onto a younger session's name left both holding it, and a
+  message went to whichever record was listed first. Each callsign is now an exclusively created
+  claim file (`names/<callsign>`); `peer_send` resolves the target through the claim, not by
+  scanning records. Stale claims from crashed sessions are reclaimed by pid plus process start time.
+- `/callsign` survives restart and resume. Contacts moved from `contacts/<session-id>.json` into
+  `sessions/<session-id>.json` alongside the callsign; 0.4.0 contact lists are not carried over.
+
 ## 0.4.0
 
 Breaking: records moved into per-profile directories, so 0.3.x and 0.4 sessions do not see each
