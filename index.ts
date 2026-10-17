@@ -43,6 +43,11 @@ const PEER_TIMEOUT_MS = 8_000;
 const MAX_CALLSIGN = 24;
 /** An unreadable claim younger than this is mid-write, not corrupt. */
 const CLAIM_WRITE_GRACE_MS = 10_000;
+/**
+ * How long a callsign stays reserved for its session after that session last ran. Within
+ * it, nobody else is given the name and a resume takes it back; after it, the name is free.
+ */
+const RESERVE_MS = 7 * 24 * 60 * 60_000;
 const MAX_STATUS_NAME = 12;
 const MAX_STATUS_WIDTH = 32;
 /**
@@ -349,7 +354,9 @@ class CollectiveNode {
 		this.#server?.close();
 		if (this.#ownsSocket()) fs.rmSync(this.#socketPath, { force: true });
 		fs.rmSync(this.#recordPath, { force: true });
-		this.#release(this.#callsign);
+		// The callsign stays reserved for this session: stamp the claim with the exit time, which
+		// is when the reservation clock starts.
+		this.#touchClaim();
 		this.#ctx.ui.setStatus("collective", undefined);
 	}
 
@@ -382,7 +389,10 @@ class CollectiveNode {
 		const renamed = ((this.#wantedName() ?? "") !== this.#allocatedFor || displaced) && this.#allocate();
 		const healed = !this.#ownsSocket() && this.#bind();
 		const recordMissing = !fs.existsSync(this.#recordPath);
-		if (renamed || healed || recordMissing || this.#checks % REFRESH_CHECKS === 0) this.#writeRecord();
+		if (renamed || healed || recordMissing || this.#checks % REFRESH_CHECKS === 0) {
+			this.#writeRecord();
+			this.#touchClaim();
+		}
 	}
 
 	/** True when the socket file at our path is the one this process bound. */
@@ -520,7 +530,7 @@ class CollectiveNode {
 		return previous !== next;
 	}
 
-	/** The lowest `<prefix>-NNN` (from `first`) that this process manages to claim. */
+	/** The lowest `<prefix>-NNN` (from `first`) that is neither held nor reserved, claimed by this process. */
 	#claimNumbered(prefix: string, first: number): string {
 		for (let attempt = 0; attempt < 50; attempt += 1) {
 			const taken = new Set<number>();
@@ -532,10 +542,7 @@ class CollectiveNode {
 			}
 			for (const entry of entries) {
 				const suffix = entry.startsWith(`${prefix}-`) ? entry.slice(prefix.length + 1) : "";
-				if (!/^\d{3,}$/u.test(suffix)) continue;
-				const owner = readClaim(path.join(this.#namesDir, entry));
-				// Cheap scan: a dead pid frees the number; `#claim` settles pid reuse exactly.
-				if (owner === "unreadable" || (typeof owner === "object" && pidAlive(owner.pid))) taken.add(Number(suffix));
+				if (/^\d{3,}$/u.test(suffix) && this.#blocked(path.join(this.#namesDir, entry), false)) taken.add(Number(suffix));
 			}
 			let number = first;
 			while (taken.has(number)) number += 1;
@@ -552,10 +559,31 @@ class CollectiveNode {
 	}
 
 	/**
-	 * Take `names/<name>` for this process, or report it held. The create is exclusive
-	 * (`wx`), which is the whole collision guarantee. A claim whose owner is gone is taken
-	 * over by renaming it aside first — rename is atomic, so of several sessions racing for
-	 * the same stale name exactly one moves it, and the rest fall back to the exclusive create.
+	 * True when the claim at `file` keeps this process from taking it: it is mid-write, its
+	 * process is running, or it is still reserved for a different session. `exact` verifies a
+	 * running pid by start time (one `ps`); the number scan skips that and lets `#claim` decide.
+	 */
+	#blocked(file: string, exact: boolean): boolean {
+		const owner = readClaim(file);
+		if (owner === "missing") return false;
+		let age: number;
+		try {
+			age = Date.now() - fs.statSync(file).mtimeMs;
+		} catch {
+			return false;
+		}
+		if (owner === "unreadable") return age < CLAIM_WRITE_GRACE_MS;
+		if (owner.pid === process.pid) return false;
+		if (exact ? this.#claimLive(owner) : pidAlive(owner.pid)) return true;
+		return owner.sessionId !== undefined && owner.sessionId !== this.#sessionId && age < RESERVE_MS;
+	}
+
+	/**
+	 * Take `names/<name>` for this process, or report it unavailable. The create is exclusive
+	 * (`wx`), which is the whole collision guarantee. A claim that no longer blocks — its
+	 * process is gone and its reservation expired, or it is this session's own — is taken over
+	 * by renaming it aside first: rename is atomic, so of several sessions racing for the same
+	 * name exactly one moves it, and the rest fall back to the exclusive create.
 	 */
 	#claim(name: string): boolean {
 		const file = path.join(this.#namesDir, name);
@@ -567,30 +595,17 @@ class CollectiveNode {
 			} catch (error) {
 				if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
 			}
-			const owner = readClaim(file);
-			if (owner === "missing") continue;
-			if (owner === "unreadable") {
-				let age = 0;
-				try {
-					age = Date.now() - fs.statSync(file).mtimeMs;
-				} catch {
-					continue;
-				}
-				if (age < CLAIM_WRITE_GRACE_MS) return false;
-			} else {
-				if (owner.pid === process.pid) return true;
-				if (this.#claimLive(owner)) return false;
-			}
+			if (this.#holds(name)) return true;
+			if (this.#blocked(file, true)) return false;
 			const aside = path.join(this.#namesDir, `.stale-${process.pid}-${Date.now()}-${attempt}`);
 			try {
 				fs.renameSync(file, aside);
 			} catch {
 				continue;
 			}
-			// Between reading the stale owner and the rename, another session may have taken the
-			// name; if what moved is a live claim, put it back rather than steal it.
-			const moved = readClaim(aside);
-			if (typeof moved === "object" && moved.pid !== process.pid && this.#claimLive(moved)) {
+			// Between the check and the rename another session may have taken the name; if what
+			// moved still blocks, put it back rather than steal it.
+			if (this.#blocked(aside, true)) {
 				try {
 					fs.linkSync(aside, file);
 				} catch {
@@ -611,7 +626,18 @@ class CollectiveNode {
 		return processStart(owner.pid) === owner.start;
 	}
 
-	/** Give up `name` if this process still holds it. */
+	/** Keep the claim's mtime near "last ran", which is what a reservation expires from. */
+	#touchClaim(): void {
+		if (!this.#holds(this.#callsign)) return;
+		const now = new Date();
+		try {
+			fs.utimesSync(path.join(this.#namesDir, this.#callsign), now, now);
+		} catch {
+			// Re-claimed on the next check.
+		}
+	}
+
+	/** Give up `name` outright (a rename away from it): it is not reserved. */
 	#release(name: string): void {
 		if (name !== "" && this.#holds(name)) fs.rmSync(path.join(this.#namesDir, name), { force: true });
 	}
@@ -677,6 +703,19 @@ class CollectiveNode {
 				: owner === "missing"
 					? peers.find(peer => peer.callsign === callsign)
 					: undefined;
+		if (!record && typeof owner === "object" && owner.sessionId !== undefined) {
+			let lastRan: number | undefined;
+			try {
+				lastRan = fs.statSync(path.join(this.#namesDir, callsign)).mtimeMs;
+			} catch {
+				lastRan = undefined;
+			}
+			if (lastRan !== undefined && Date.now() - lastRan < RESERVE_MS) {
+				const minutes = Math.max(1, Math.round((Date.now() - lastRan) / 60_000));
+				const ago = minutes < 60 ? `${minutes} min` : minutes < 48 * 60 ? `${Math.round(minutes / 60)} h` : `${Math.round(minutes / 1440)} days`;
+				return `${callsign} is offline (its session last ran ${ago} ago). The callsign stays reserved for that session until it resumes or for ${RESERVE_MS / 86_400_000} days, so nothing else received this message.`;
+			}
+		}
 		if (!record) {
 			const needle = callsign.toLowerCase();
 			const close = peers.map(peer => peer.callsign).filter(name => name.toLowerCase().includes(needle));

@@ -2,9 +2,13 @@
 
 ## 0.4.1
 
-- **Memorable callsigns.** Unnamed sessions are `<dir>-001`, `<dir>-002`, … (lowest free number)
-  instead of `<dir>-<pid>`, and a restarted or resumed session takes back its number when free. A
-  name already held becomes `<name>-002` (was `<name>-<pid>`), with a notice explaining why.
+- **Memorable callsigns.** Unnamed sessions are `<dir>-001`, `<dir>-002`, … instead of
+  `<dir>-<pid>`. A name already held becomes `<name>-002` (was `<name>-<pid>`), with a notice
+  explaining why.
+- **Callsigns belong to sessions.** After a session exits or crashes, its callsign stays reserved
+  for its session id for 7 days from when it last ran: new sessions skip it, messages to it are
+  answered "offline" instead of reaching another session, and a resume takes it back. Unused
+  reservations expire and the number is reused.
 - **Callsigns can no longer collide.** 0.4.0 checked for a clash only when a session's own name
   changed, so an older session renaming onto a younger session's name left both holding it, and a
   message went to whichever record was listed first. Each callsign is now an exclusively created

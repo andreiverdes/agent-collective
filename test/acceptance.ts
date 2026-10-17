@@ -155,7 +155,7 @@ const betaPid = procs.beta!.pid;
 procs.beta!.p.kill("SIGKILL");
 await sleep(200);
 const deadSend = await tool("alpha", "peer_send", { to: "beta", message: "anyone?" });
-check(deadSend.startsWith("Unknown peer") && !fs.existsSync(path.join(home, `.agent-collective/default/${betaPid}.json`)), "killed peer is reaped on the next read");
+check(deadSend.startsWith("beta is offline (its session last ran 1 min ago)") && !fs.existsSync(path.join(home, `.agent-collective/default/${betaPid}.json`)), "killed peer is reaped on the next read; its callsign reports offline", deadSend.slice(0, 50));
 
 // 8. Idle instance does no polling of others: count fs reads via record mtimes is indirect; check no record rewrite storm
 const rec = path.join(home, `.agent-collective/default/${procs.alpha!.pid}.json`);
@@ -173,18 +173,29 @@ check(
 	"six unnamed sessions started together get proj-001…proj-006",
 	raced.join(" "),
 );
-const [a, b] = [raced[1]!, raced[2]!];
-procs.n2!.p.kill("SIGKILL");
-procs.n3!.p.kill("SIGKILL");
-await sleep(200);
-await spawn("n3b", { ...auto, SESSION_ID: "sess-n3" });
-check((await whoami("n3b")) === b, "a resumed session takes back its callsign", `${b} → ${await whoami("n3b")}`);
-await spawn("n7", auto);
-check((await whoami("n7")) === a, "a new session takes the lowest free number", `${await whoami("n7")}`);
-const n1Name = raced[0]!;
-cmd("n1", { cmd: "exit" });
+// Your scenario, in order: 001 002 003, close 002, new session.
+const byName = new Map(six.map((n, i) => [raced[i]!, n]));
+const holder = (name: string) => byName.get(name)!;
+const claims = path.join(home, ".agent-collective/default/names");
+cmd(holder("proj-002"), { cmd: "exit" });
 await sleep(300);
-check(!fs.existsSync(path.join(home, `.agent-collective/default/names/${n1Name}`)), "a clean exit releases the callsign");
+check(fs.existsSync(path.join(claims, "proj-002")), "a clean exit keeps the callsign reserved");
+await spawn("n7", auto);
+check((await whoami("n7")) === "proj-007", "a new session skips the reserved number", `${await whoami("n7")}`);
+const offline = await tool("n7", "peer_send", { to: "proj-002", message: "are you there?" });
+check(offline.startsWith("proj-002 is offline"), "a message to a reserved, offline callsign says so", offline.slice(0, 60));
+await spawn("n2b", { ...auto, SESSION_ID: `sess-${holder("proj-002")}` });
+check((await whoami("n2b")) === "proj-002", "resuming that session takes its callsign back");
+// A crash reserves just the same.
+procs[holder("proj-003")]!.p.kill("SIGKILL");
+await sleep(200);
+await spawn("n8", auto);
+check((await whoami("n8")) === "proj-008", "a crashed session's number stays reserved too", `${await whoami("n8")}`);
+// Expiry: once a reservation is older than 7 days the number is free again.
+const weekAgo = new Date(Date.now() - 8 * 24 * 3_600_000);
+fs.utimesSync(path.join(claims, "proj-003"), weekAgo, weekAgo);
+await spawn("n9", auto);
+check((await whoami("n9")) === "proj-003", "an expired reservation is reused", `${await whoami("n9")}`);
 
 // 10. Named sessions: the first keeps the name, the next is <name>-002, addressing is unambiguous
 await spawn("d1", { HOST: "pi", SESSION_NAME: "dup" });

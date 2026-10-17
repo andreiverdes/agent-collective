@@ -63,8 +63,14 @@ interrupt its running tool batch; a busy pi peer is steered (pi has no aside).
 ### Callsigns
 
 Unnamed sessions are numbered by directory: the first unnamed session in `be-audio/` is
-`be-audio-001`, the next `be-audio-002`, and so on. The lowest free number is used, and a session
-that is restarted or resumed takes back the number it had if it is still free.
+`be-audio-001`, the next `be-audio-002`, and so on, using the lowest number not held or reserved.
+
+A callsign belongs to its **session**, not its process. When a session exits (or crashes), its
+callsign stays reserved for that session id for 7 days after it last ran: nobody else is given it,
+a message to it is answered "offline" instead of reaching someone else, and resuming the session
+takes it back. A reservation unused for 7 days expires and the number becomes free again. So in
+`be-audio`: start 001, 002, 003; close 002; the next new session is 004, and resuming the closed
+one makes it 002 again.
 
 Name a session to choose its callsign: `/rename be-audio` (saved as the session title) or
 `/callsign be-audio` (callsign only, remembered for that session). If a live session already holds
@@ -78,10 +84,12 @@ peer's addressing. pi exposes no title source, so there a session name is adopte
 already looks like an address: one token, no whitespace, within the length cap. A `/rename` is
 picked up within 5 s.
 
-No two live sessions in a collective ever share a callsign: each one is a claim file under
-`names/`, created with an exclusive open, so of any number of sessions starting at once exactly one
-gets each name. A claim left behind by a crashed session is reclaimed once its process is gone
-(checked by pid and process start time, so a reused pid does not keep it).
+No two sessions in a collective ever share a callsign: each one is a claim file under `names/`,
+created with an exclusive open, so of any number of sessions starting at once exactly one gets each
+name. A running session refreshes its claim about once a minute; the claim's age is what a
+reservation expires from. A claim is treated as running only while its pid exists with the same
+process start time, so a reused pid does not keep it. Renaming a session away from a callsign frees
+that callsign immediately; it is not reserved.
 
 ## How it works
 
