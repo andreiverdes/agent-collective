@@ -1,7 +1,7 @@
 {
   "name": "agent-collective",
-  "version": "0.3.1",
-  "description": "Cross-instance peer awareness and steering for omp and pi: every running instance sees the others by callsign and can prompt them \u2014 natively through omp's hub tool, or via peers/peer_send tools on pi.",
+  "version": "0.3.2",
+  "description": "Cross-instance peer awareness and steering for omp and pi: every running instance sees the others by callsign and can prompt them — natively through omp's hub tool, or via peers/peer_send tools on pi.",
   "type": "module",
   "main": "./index.ts",
   "exports": {
@@ -45,8 +45,8 @@
     ]
   },
   "peerDependencies": {
-    "@oh-my-pi/pi-coding-agent": ">=18.1.0 <19.0.0",
-    "@earendil-works/pi-coding-agent": ">=0.80.0"
+    "@earendil-works/pi-coding-agent": ">=0.80.0",
+    "@oh-my-pi/pi-coding-agent": ">=18.1.0 <19.0.0"
   },
   "repository": {
     "type": "git",

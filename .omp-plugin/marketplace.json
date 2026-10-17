@@ -11,7 +11,7 @@
     {
       "name": "agent-collective",
       "source": "./",
-      "version": "0.1.0",
+      "version": "0.3.2",
       "description": "Every running omp instance sees the others by callsign and can prompt them through the built-in hub tool.",
       "category": "development",
       "license": "MIT",

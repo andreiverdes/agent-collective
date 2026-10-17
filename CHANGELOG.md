@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.3.2
+
+- Fixed the hop guard refusing ordinary traffic in busy, long-running instances. The node kept one
+  hop counter, set by the *last* inbound message and reset only by a typed human prompt, so a worker
+  that received a late-chain reply kept stamping hop 5 on every later send — to any peer, in any
+  later turn — until a human typed into it. Lineage is now scoped:
+  - a message that steers into a running turn raises the hop only for replies to its sender;
+  - only a message that wakes an idle agent roots that turn's hop for all its sends;
+  - lineage clears when a turn ends (`agent_end`), not only on human input.
+  Mutual wake is still bounded: each woken turn inherits the waking message's hop.
+- The "relay hops remain" hint reflects the hop a reply to that sender would actually carry.
+- Fixed the roster note breaking the provider prompt cache. It was re-rendered on every model call
+  and appended to whichever user message was newest, so each new turn moved it off the previous
+  prompt (re-prefilling that whole turn), and the per-peer `(working)`/`(idle)` flags flipping on
+  the heartbeat changed the prompt between calls of one turn. Each user message now gets its note
+  — or none — on the first call that sends it, and the same bytes on every later call; a new note
+  is attached only to a new user message, and only when the roster changed. Busy state left the
+  note; `peers` and `hub op=list` report it on demand.
+
 ## 0.3.1
 
 - Fixed `collective: not started`. The node was created only inside `session_start`, so any path

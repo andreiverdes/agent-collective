@@ -66,8 +66,9 @@ two sockets, and peer refs claimed twice.
 The footer carries a roster chip — `⇄ 007 goose-3182* +2` — where `*` marks a working peer,
 working peers and peers sharing your cwd sort first, and the rest collapse into `+N`.
 
-Every model call also carries a short roster block naming your own callsign, each peer's harness,
-and how to reach them, so an agent can address peers without being told they exist.
+Each user message the model sees also carries a short roster block naming your own callsign, each
+peer's harness, and how to reach them, so an agent can address peers without being told they exist.
+The block is attached only when the roster changed since the last one in context.
 
 ### Callsigns
 
@@ -100,8 +101,9 @@ Name collisions deconflict by start time: the older instance keeps the bare name
   - **pi** — neither module exists, so `peers` / `peer_send` are registered and inbound arrives via
     `sendUserMessage`.
 - The roster is injected on the `context` event (before every model call, on a clone that never
-  reaches the transcript), appended to the last user message so provider role alternation and the
-  cached prompt prefix stay intact.
+  reaches the transcript). Each user message's note is fixed the first time that message is sent
+  and re-rendered byte-for-byte afterwards, so earlier prompt bytes never change and the provider
+  prompt cache holds across calls and turns. Volatile state (busy/idle) is not in the note.
 
 ## Limits
 
@@ -119,10 +121,12 @@ Name collisions deconflict by start time: the older instance keeps the bare name
   than shadowing the local peer.
 - **Chains stop at 4 hops.** Every message carries its distance from the human prompt that started
   the chain; past the limit, delivery is refused with an explicit error telling the sender the chain
-  ends there, and a local warning is shown. A human prompt resets the count. This exists because
-  mutual wake is a *behavioural* loop — A wakes B, B's turn wakes A — where each delivery is a
-  legitimate single hop, so no transport-level guard trips. Raise or lower `MAX_HOPS` in `index.ts`
-  if 4 is wrong for you.
+  ends there, and a local warning is shown. A message that wakes an idle agent sets the hop for
+  everything that turn sends; one that steers into a running turn only affects replies to its
+  sender. A human prompt or the end of the turn resets the count. This exists because mutual wake
+  is a *behavioural* loop — A wakes B, B's turn wakes A — where each delivery is a legitimate
+  single hop, so no transport-level guard trips. Raise or lower `MAX_HOPS` in `index.ts` if 4 is
+  wrong for you.
 - **Bursts become one wake.** Messages from one peer arriving within 400 ms are delivered as a single
   numbered batch, so N messages cost one turn rather than N.
 - Roster injection costs roughly one line per peer per model call; with no peers nothing is injected

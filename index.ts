@@ -122,8 +122,8 @@ interface IrcMessageLike {
 /**
  * Frame exchanged over a peer's unix socket, one JSON object per line.
  *
- * `hop` is the message's distance from the last human prompt: 0 for a message an agent sends
- * on its own initiative, +1 for each agent-to-agent relay after that. It exists because
+ * `hop` is the message's distance from a human prompt: 0 for a message an agent sends on
+ * its own initiative, otherwise one more than the message it answers. It exists because
  * mutual wake is a *behavioural* loop, not a transport loop — A wakes B, B's resulting turn
  * wakes A, and every individual delivery is a legitimate single hop, so no transport-level
  * guard ever trips. Absent (older peers) is treated as 0.
@@ -143,6 +143,8 @@ interface PeerReply {
 interface ContextMessageLike {
 	role: string;
 	content: string | { type: string; text?: string }[];
+	/** Both hosts stamp every message; for a user message it is the stable identity. */
+	timestamp?: number;
 }
 
 interface SessionLike {
@@ -226,6 +228,15 @@ interface CollectivePi {
 let node: CollectiveNode | undefined;
 
 /**
+ * Roster note frozen onto each user message, keyed by that message's timestamp, so every
+ * later model call re-renders the exact same bytes and the provider prompt cache holds.
+ * Shared by every session in the process (in-process subagents included), so it is
+ * bounded by insertion age rather than pruned to whatever one context contains.
+ */
+const frozenNotes = new Map<number, string>();
+const MAX_FROZEN_NOTES = 512;
+
+/**
  * Get the live node, starting one if this process has none.
  *
  * Creating the node only inside `session_start` was a latent failure: any path where that
@@ -260,8 +271,18 @@ class CollectiveNode {
 	readonly #peers = new Map<string, PeerRecord>();
 	/** Bodies accumulating inside the current burst window, keyed by sender. */
 	readonly #pending = new Map<string, { bodies: string[]; hop: number }>();
-	/** Hop count of the inbound message whose turn is currently running, if any. */
-	#inboundHop: number | undefined;
+	/**
+	 * Hop of the peer message that woke the current turn; undefined when the turn was started
+	 * by a human (or no turn is running). Every send a woken turn makes is at least one past it,
+	 * which is what bounds a loop of agents waking each other.
+	 */
+	#turnHop: number | undefined;
+	/**
+	 * Highest hop received from each peer during the current turn. A send to that peer is
+	 * treated as an answer to it. Sends to anyone else are not — a message that steers into a
+	 * running turn must not tax that turn's unrelated traffic.
+	 */
+	readonly #peerHops = new Map<string, number>();
 	#override: string | undefined;
 	#callsign: string;
 	#server: net.Server | undefined;
@@ -522,7 +543,7 @@ class CollectiveNode {
 					from: this.#callsign,
 					body: msg.body,
 					replyTo: msg.replyTo,
-					hop: this.#outboundHop(),
+					hop: this.#outboundHop(record.callsign),
 				});
 				return reply?.outcome === "woken" ? "woken" : "injected";
 			},
@@ -555,7 +576,7 @@ class CollectiveNode {
 			from: this.#callsign,
 			body,
 			replyTo,
-			hop: this.#outboundHop(),
+			hop: this.#outboundHop(callsign),
 		});
 		if (!reply) return `No response from ${callsign} (socket closed).`;
 		if (!reply.ok) return `Delivery to ${callsign} failed: ${reply.error ?? "unknown error"}`;
@@ -563,17 +584,28 @@ class CollectiveNode {
 	}
 
 	/**
-	 * Hop count to stamp on an outbound message. A send made during a turn that a peer
-	 * message started inherits that message's distance from the human prompt; anything else
-	 * begins a fresh chain at 0.
+	 * Hop count to stamp on a message to `to`: one past the larger of the hop that woke this
+	 * turn and the last hop `to` sent during it. A human-started turn writing to a peer that
+	 * has not written to it starts a fresh chain at 0.
 	 */
-	#outboundHop(): number {
-		return this.#inboundHop === undefined ? 0 : this.#inboundHop + 1;
+	#outboundHop(to: string): number {
+		return Math.max(this.#turnHop ?? -1, this.#peerHops.get(to) ?? -1) + 1;
 	}
 
-	/** A human prompt ends the current chain: the next agent-to-agent send starts over. */
+	/**
+	 * Record an inbound message's lineage. Only a message that *wakes* the agent roots the
+	 * turn; one that steers into a running turn affects replies to its sender alone. Several
+	 * wakes landing before the turn starts merge into one turn, so the highest hop roots it.
+	 */
+	#recordInbound(from: string, hop: number, wakes: boolean): void {
+		this.#peerHops.set(from, Math.max(this.#peerHops.get(from) ?? hop, hop));
+		if (wakes) this.#turnHop = Math.max(this.#turnHop ?? hop, hop);
+	}
+
+	/** A human prompt or the end of a turn ends every chain: the next send starts over. */
 	resetLineage(): void {
-		this.#inboundHop = undefined;
+		this.#turnHop = undefined;
+		this.#peerHops.clear();
 	}
 
 	#activityFor(record: PeerRecord): string {
@@ -701,18 +733,19 @@ class CollectiveNode {
 	 * interrupt the running tool batch, unlike bridge mode.
 	 */
 	async #inject(frame: { from: string; body: string; replyTo?: string; hop: number }): Promise<"injected" | "woken"> {
+		const wakes = this.#ctx.isIdle();
 		// Any send the resulting turn makes inherits this distance from the human prompt.
-		this.#inboundHop = frame.hop;
-		const remaining = MAX_HOPS - frame.hop;
+		this.#recordInbound(frame.from, frame.hop, wakes);
+		// Sends a reply to this peer may still make, counting the reply itself.
+		const remaining = MAX_HOPS - this.#outboundHop(frame.from) + 1;
 		const budget =
 			remaining <= 1
 				? " This chain is at its last hop, so answer your user rather than relaying further."
 				: ` ${remaining} relay hops remain in this chain.`;
 		const text = `[collective] message from peer \`${frame.from}\`${frame.replyTo ? " (a reply)" : ""}:\n\n${frame.body}\n\nReply with the \`${bridge ? "hub" : "peer_send"}\` tool addressed to \`${frame.from}\` if a response is useful.${budget}`;
 		if (!bridge) {
-			const idle = this.#ctx.isIdle();
-			this.#pi.sendUserMessage(text, idle ? undefined : { deliverAs: "steer" });
-			return idle ? "woken" : "injected";
+			this.#pi.sendUserMessage(text, wakes ? undefined : { deliverAs: "steer" });
+			return wakes ? "woken" : "injected";
 		}
 		try {
 			const result = await bridge.send(
@@ -765,50 +798,82 @@ export default function collective(pi: CollectivePi): void {
 	});
 
 	/**
+	 * A finished turn owes nothing to the messages it answered. Without this, a long-running
+	 * worker carried the hop of every message it ever received into sends made much later.
+	 */
+	pi.on("agent_end", async () => {
+		node?.resetLineage();
+	});
+
+	/**
 	 * Identity + roster on every LLM call. `before_agent_start` fires once per *user*
 	 * prompt, so an IRC-woken turn (exactly the remote-steering case) would run without
 	 * it and the agent would not know its own callsign. `context` operates on a clone
-	 * that never reaches the transcript, and appending to the last user message keeps
-	 * provider role alternation and the cached prompt prefix intact.
+	 * that never reaches the transcript.
+	 *
+	 * The note must never change bytes the provider already cached. Appending a freshly
+	 * rendered roster to whichever user message is newest did exactly that: the note moved
+	 * off the previous prompt every turn (re-prefilling that whole turn), and the per-peer
+	 * busy flags it carried flipped between calls (re-prefilling everything after the
+	 * prompt). So a note is frozen onto the user message it was first attached to and
+	 * re-attached verbatim on every later call; a new note is attached only to a new user
+	 * message, and only when the roster text actually changed. Busy state is left to the
+	 * `peers` tool / `hub` op=list, which are read on demand.
 	 */
 	pi.on("context", async (event, ctx) => {
 		// Runs before every model call, so it doubles as the reliable re-arm point.
 		const live = ensureNode(pi, ctx);
-		const peers = live?.peers ?? [];
-		if (!live || peers.length === 0) return;
-		const roster = peers
-			.map(
-				peer =>
-					`- \`${peer.callsign}\` — ${peer.via} instance in ${peer.cwd}${peer.busy ? " (working)" : " (idle)"}`,
-			)
-			.join("\n");
-		const how = bridge
-			? [
-					"They are addressable by callsign through the `hub` tool, exactly like local subagents:",
-					'`hub` op=list shows them; `hub` op=send to="<callsign>" injects a real prompt into that terminal\'s agent, and `await: true` returns its reply.',
-				]
-			: [
-					"They are addressable by callsign through the `peers` and `peer_send` tools:",
-					"`peers` lists them; `peer_send` injects a real prompt into that instance's agent, and its reply arrives here as a peer message.",
-				];
-		const note = [
-			"<collective-peers>",
-			`You are the agent instance with collective callsign \`${node.callsign}\`.`,
-			...how,
-			"",
-			roster,
-			"</collective-peers>",
-		].join("\n");
 		const { messages } = event as { messages: ContextMessageLike[] };
-		for (let index = messages.length - 1; index >= 0; index -= 1) {
-			const message = messages[index];
-			if (!message || message.role !== "user") continue;
+		const attach = (message: ContextMessageLike, note: string): void => {
 			if (typeof message.content === "string") message.content = `${message.content}\n\n${note}`;
-			else if (Array.isArray(message.content)) message.content.push({ type: "text", text: note });
-			else continue;
-			return { messages };
+			else message.content.push({ type: "text", text: note });
+		};
+		let newest: ContextMessageLike | undefined;
+		let latestNote: string | undefined;
+		let newestDecided = false;
+		for (const message of messages) {
+			if (message.role !== "user" || typeof message.timestamp !== "number") continue;
+			if (typeof message.content !== "string" && !Array.isArray(message.content)) continue;
+			newest = message;
+			const frozen = frozenNotes.get(message.timestamp);
+			newestDecided = frozen !== undefined;
+			// "" records that this message was sent without a note; it must stay that way.
+			if (!frozen) continue;
+			attach(message, frozen);
+			latestNote = frozen;
 		}
-		return { messages: [...messages, { role: "user", content: note }] };
+		// A user message gets its note (or none) on the first call that sends it, never later:
+		// adding one mid-turn would rewrite a prompt the provider has already cached.
+		if (!live || !newest || newestDecided || typeof newest.timestamp !== "number") return { messages };
+		const peers = live.peers;
+		let note: string | undefined;
+		if (peers.length > 0) {
+			const how = bridge
+				? [
+						"They are addressable by callsign through the `hub` tool, exactly like local subagents:",
+						'`hub` op=list shows them and whether each is working; `hub` op=send to="<callsign>" injects a real prompt into that terminal\'s agent, and `await: true` returns its reply.',
+					]
+				: [
+						"They are addressable by callsign through the `peers` and `peer_send` tools:",
+						"`peers` lists them and whether each is working; `peer_send` injects a real prompt into that instance's agent, and its reply arrives here as a peer message.",
+					];
+			note = [
+				"<collective-peers>",
+				`You are the agent instance with collective callsign \`${live.callsign}\`.`,
+				...how,
+				"",
+				...peers.map(peer => `- \`${peer.callsign}\` — ${peer.via} instance in ${peer.cwd}`),
+				"</collective-peers>",
+			].join("\n");
+		} else if (latestNote !== undefined) {
+			// An earlier roster is still in context; say it is out of date rather than leave it standing.
+			note = `<collective-peers>\nYou are the agent instance with collective callsign \`${live.callsign}\`. No peers are live any more.\n</collective-peers>`;
+		}
+		const fresh = note !== undefined && note !== latestNote ? note : "";
+		frozenNotes.set(newest.timestamp, fresh);
+		if (frozenNotes.size > MAX_FROZEN_NOTES) frozenNotes.delete(frozenNotes.keys().next().value as number);
+		if (fresh) attach(newest, fresh);
+		return { messages };
 	});
 
 	pi.registerCommand("callsign", {
