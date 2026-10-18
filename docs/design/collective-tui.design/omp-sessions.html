@@ -1,0 +1,77 @@
+<style>
+  .term { height: 100%; background: var(--bg); color: var(--fg); font: 13px/20px var(--mono); display: flex; flex-direction: column; padding-top: var(--safe-top); }
+  .bar { display: flex; gap: 16px; padding: 4px 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .bar b { color: var(--accent); font-weight: 600; }
+  .dim { color: var(--muted); }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .risk { color: var(--risk); } .acc { color: var(--accent); }
+  .body { flex: 1; display: grid; grid-template-columns: 1fr 380px; min-height: 0; }
+  .list { padding: 6px 0; border-right: 1px solid var(--border); overflow: hidden; }
+  .row { display: grid; grid-template-columns: 20px 200px 96px 1fr 44px 104px 48px; padding: 0 12px; white-space: pre; }
+  .row.head { color: var(--muted); border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+  .row.sel { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+  .row.off { color: var(--muted); }
+  .sep { padding: 2px 12px; color: var(--muted); }
+  .side { padding: 8px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .kv { display: grid; grid-template-columns: 96px 1fr; white-space: pre; }
+  .kv span:nth-child(odd) { color: var(--muted); }
+  .box { border: 1px solid var(--border); padding: 6px 8px; }
+  .keys { padding: 4px 12px; border-top: 1px solid var(--border); background: var(--surface); color: var(--muted); white-space: pre; }
+  .keys b { color: var(--fg); font-weight: 600; }
+  .filter { padding: 4px 12px; border-bottom: 1px solid var(--border); white-space: pre; }
+</style>
+<main class="term" data-bd="screen">
+  <div class="bar" data-bd="header">
+    <span><b>collective</b> default</span>
+    <span>you are <span class="acc">agent-collective-update</span> · omp</span>
+    <span class="dim">14 running · 1 quiet · 2 offline · 3 contacts</span>
+  </div>
+  <div class="filter" data-bd="filter"><span class="dim">/</span> <span class="dim">filter by callsign or directory</span></div>
+  <div class="body">
+    <section class="list" data-bd="sessions">
+      <div class="row head"><span> </span><span>callsign</span><span>state</span><span>directory</span><span>via</span><span>where</span><span>seen</span></div>
+      <div class="sep">contacts</div>
+      <div class="row sel" data-bd="row-be-audio-001" data-nav="omp-thread" data-nav-label="Enter: open thread"><span class="warn">★</span><span>be-audio-001</span><span class="acc">● working</span><span>.worktrees/be-audio</span><span>omp</span><span>Tern 3</span><span>40s</span></div>
+      <div class="row" data-bd="row-int-backend-001"><span class="warn">★</span><span>int-backend-001</span><span class="ok">○ idle</span><span>.worktrees/int-backend</span><span>omp</span><span>Tern 7</span><span>2m</span></div>
+      <div class="row" data-bd="row-big-boss"><span class="warn">★</span><span>big-boss</span><span class="ok">○ idle</span><span>stanbam-umbrella</span><span>omp</span><span>Tern 1</span><span>1m</span></div>
+      <div class="sep">others</div>
+      <div class="row" data-bd="row-be-foundation-001"><span> </span><span>be-foundation-001</span><span class="acc">● working</span><span>.worktrees/be-foundation</span><span>omp</span><span>Tern 4</span><span>12s</span></div>
+      <div class="row" data-bd="row-be-ops-001"><span> </span><span>be-ops-001</span><span class="acc">● working</span><span>.worktrees/be-ops</span><span>omp</span><span>Tern 5</span><span>30s</span></div>
+      <div class="row" data-bd="row-be-push-001"><span> </span><span>be-push-001</span><span class="warn">◌ quiet</span><span>.worktrees/be-push</span><span>omp</span><span>Tern 6</span><span>7m</span></div>
+      <div class="row" data-bd="row-be-rekognition-001"><span> </span><span>be-rekognition-001</span><span class="ok">○ idle</span><span>.worktrees/be-rekognition</span><span>omp</span><span>Tern 8</span><span>3m</span></div>
+      <div class="row" data-bd="row-bluedoc"><span> </span><span>bluedoc</span><span class="ok">○ idle</span><span>~/Developer/AI</span><span>pi</span><span>tty s014</span><span>5m</span></div>
+      <div class="row" data-bd="row-docs-legal-001"><span> </span><span>docs-legal-001</span><span class="ok">○ idle</span><span>.worktrees/docs-legal</span><span>omp</span><span>Tern 9</span><span>4m</span></div>
+      <div class="row" data-bd="row-m-auth-email-001"><span> </span><span>m-auth-email-001</span><span class="acc">● working</span><span>.worktrees/m-auth-email</span><span>omp</span><span>Tern 10</span><span>8s</span></div>
+      <div class="row" data-bd="row-m-gates-001"><span> </span><span>m-gates-001</span><span class="ok">○ idle</span><span>.worktrees/m-gates</span><span>omp</span><span>Tern 11</span><span>2m</span></div>
+      <div class="row" data-bd="row-m-payments-001"><span> </span><span>m-payments-001</span><span class="acc">● working</span><span>.worktrees/m-payments</span><span>omp</span><span>Tern 12</span><span>20s</span></div>
+      <div class="row" data-bd="row-stanbam-umbrella-001"><span> </span><span>stanbam-umbrella-001</span><span class="ok">○ idle</span><span>stanbam-umbrella</span><span>omp</span><span>herdr wC:p2</span><span>6m</span></div>
+      <div class="row" data-bd="row-stanbam-umbrella-002"><span> </span><span>stanbam-umbrella-002</span><span class="acc">● working</span><span>stanbam-umbrella</span><span>omp</span><span>Tern 2</span><span>15s</span></div>
+      <div class="sep">offline · reserved for their sessions</div>
+      <div class="row off" data-bd="row-be-replay-001"><span> </span><span>be-replay-001</span><span>– offline</span><span>.worktrees/be-replay</span><span>omp</span><span>—</span><span>3h</span></div>
+      <div class="row off" data-bd="row-m-privacy-001"><span> </span><span>m-privacy-001</span><span>– offline</span><span>.worktrees/m-privacy</span><span>omp</span><span>—</span><span>2d</span></div>
+    </section>
+    <aside class="side" data-bd="detail">
+      <div><span class="acc">be-audio-001</span> <span class="dim">· contact</span></div>
+      <div class="kv" data-bd="detail-facts">
+        <span>directory</span><span>…/.worktrees/be-audio</span>
+        <span>harness</span><span>omp · claude-opus-5</span>
+        <span>state</span><span class="acc">working, 4m into a turn</span>
+        <span>where</span><span>Tern pane 3 · tab be-audio</span>
+        <span>pid</span><span>14540</span>
+        <span>session</span><span>01a149ca…f4ae</span>
+        <span>running</span><span>3h 12m</span>
+      </div>
+      <div class="box" data-bd="last-message">
+        <div class="dim">last message · 14:02</div>
+        <div>you → be-audio-001 <span class="ok">woken</span></div>
+        <div class="dim">ship the migration once int-backend is green; ping me with the commit</div>
+      </div>
+      <div class="box" data-bd="actions">
+        <div><b>enter</b> thread &amp; message</div>
+        <div><b>g</b> go to Tern pane 3</div>
+        <div><b>y</b> copy callsign</div>
+      </div>
+    </aside>
+  </div>
+  <div class="keys" data-bd="keys"><b>↑↓</b> select  <b>enter</b> thread  <b>/</b> filter  <b>c</b> contacts only  <b>g</b> go to pane  <b>r</b> rename me  <b>esc</b> close</div>
+  <i hidden data-bd="key-r" data-nav="modal:omp-rename" data-nav-label="Press r: rename this session"></i>
+</main>

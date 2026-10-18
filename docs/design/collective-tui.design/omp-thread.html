@@ -1,0 +1,40 @@
+<style>
+  .term { height: 100%; background: var(--bg); color: var(--fg); font: 13px/20px var(--mono); display: flex; flex-direction: column; padding-top: var(--safe-top); }
+  .bar { display: flex; gap: 16px; padding: 4px 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .bar b { color: var(--accent); font-weight: 600; }
+  .dim { color: var(--muted); }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .risk { color: var(--risk); } .acc { color: var(--accent); }
+  .log { flex: 1; padding: 8px 16px; overflow: hidden; display: flex; flex-direction: column; gap: 10px; }
+  .msg { display: grid; grid-template-columns: 52px 210px 1fr; gap: 0 8px; }
+  .msg .who { white-space: pre; }
+  .msg .text { white-space: pre-wrap; }
+  .tag { display: inline-block; padding: 0 6px; border: 1px solid currentColor; border-radius: 3px; font-size: 11px; line-height: 16px; margin-left: 6px; }
+  .day { color: var(--muted); text-align: center; }
+  .compose { border-top: 1px solid var(--border); padding: 6px 12px; background: var(--surface); }
+  .compose .field { font: inherit; width: 100%; background: var(--bg); color: var(--fg); border: 1px solid var(--accent); padding: 4px 8px; border-radius: 3px; }
+  .hint { color: var(--muted); white-space: pre; padding-top: 4px; }
+  .hint b { color: var(--fg); font-weight: 600; }
+</style>
+<main class="term" data-bd="screen">
+  <div class="bar" data-bd="header">
+    <span data-bd="back" data-nav="back" data-nav-label="Esc: back to sessions"><b>‹ collective</b></span>
+    <span>you <span class="dim">⇄</span> <span class="acc">be-audio-001</span></span>
+    <span class="acc">● working</span>
+    <span class="dim">omp · …/.worktrees/be-audio · Tern pane 3</span>
+  </div>
+  <section class="log" data-bd="thread">
+    <div class="day">today</div>
+    <div class="msg" data-bd="msg-1"><span class="dim">12:20</span><span class="who">be-audio-001 → you <span class="tag dim">hop 0</span></span><span class="text">Lane be-audio started. I own internal/audiomod and cmd/transcribe; I won't touch internal/config.</span></div>
+    <div class="msg" data-bd="msg-2"><span class="dim">12:21</span><span class="who">you → be-audio-001 <span class="tag ok">woken</span></span><span class="text">Ack. int-backend-001 integrates; send it your checkpoint commits.</span></div>
+    <div class="msg" data-bd="msg-3"><span class="dim">12:29</span><span class="who">be-audio-001 → you <span class="tag dim">hop 2</span></span><span class="text">2 messages arrived together:
+1. Need ASSEMBLYAI_API_KEY; config.go isn't mine.
+2. Can I read it from audiomod's own env lookup instead?</span></div>
+    <div class="msg" data-bd="msg-4"><span class="dim">12:30</span><span class="who">you → be-audio-001 <span class="tag risk">refused</span></span><span class="text dim">Yes, read it in audiomod… — chain limit: this reply would be hop 5 of 4. Ask the user to continue.</span></div>
+    <div class="msg" data-bd="msg-5"><span class="dim">14:02</span><span class="who">you → be-audio-001 <span class="tag ok">woken</span></span><span class="text">Ship the migration once int-backend is green; ping me with the commit.</span></div>
+    <div class="msg" data-bd="msg-6"><span class="dim">14:41</span><span class="who">you → be-audio-001 <span class="tag acc">aside</span></span><span class="text">Did the migration land?</span></div>
+  </section>
+  <section class="compose" data-bd="composer">
+    <input class="field" data-bd="message-field" value="Also send int-backend-001 the commit hash when it does" aria-label="Message be-audio-001">
+    <div class="hint"><b>enter</b> send as agent-collective-update (hop 0)  <b>shift+enter</b> new line  <b>g</b> go to pane  <b>esc</b> back</div>
+  </section>
+</main>

@@ -1,0 +1,39 @@
+<style>
+  .term { height: 100%; background: var(--bg); color: var(--fg); font: 13px/20px var(--mono); display: flex; flex-direction: column; padding-top: var(--safe-top); }
+  .dim { color: var(--muted); }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .acc { color: var(--accent); }
+  .transcript { flex: 1; padding: 10px 16px; overflow: hidden; white-space: pre-wrap; }
+  .transcript .you { color: var(--accent); }
+  .panel { border-top: 2px solid var(--accent); background: var(--surface); }
+  .ptitle { display: flex; justify-content: space-between; padding: 2px 12px; }
+  .ptitle b { color: var(--accent); font-weight: 600; }
+  .row { display: grid; grid-template-columns: 20px 220px 100px 1fr 120px 48px; padding: 0 12px; white-space: pre; }
+  .row.sel { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+  .row.off { color: var(--muted); }
+  .keys { padding: 2px 12px; color: var(--muted); white-space: pre; border-top: 1px solid var(--border); }
+  .keys b { color: var(--fg); font-weight: 600; }
+</style>
+<main class="term" data-bd="screen">
+  <section class="transcript" data-bd="transcript"><span class="you">› ask be-audio whether the migration landed</span>
+
+<span class="dim">● peers filter="audio"</span>
+  1 peer: be-audio-001 — omp in …/.worktrees/be-audio (working, contact)
+<span class="dim">● peer_send to="be-audio-001"</span>
+  Delivered to be-audio-001 (aside). Its reply will arrive as a peer message.
+
+I asked be-audio-001; it is mid-turn, so the question arrived as an aside. I'll relay its answer.
+
+<span class="you">› /collective</span></section>
+  <section class="panel" data-bd="panel">
+    <div class="ptitle"><span><b>collective</b> default · you are <span class="acc">agent-collective-update</span></span><span class="dim">8 of 17 · ↓ more</span></div>
+    <div class="row sel" data-bd="row-be-audio-001" data-nav="omp-thread" data-nav-label="Enter: open thread"><span class="warn">★</span><span>be-audio-001</span><span class="acc">● working</span><span>.worktrees/be-audio</span><span>Tern 3</span><span>40s</span></div>
+    <div class="row" data-bd="row-int-backend-001"><span class="warn">★</span><span>int-backend-001</span><span class="ok">○ idle</span><span>.worktrees/int-backend</span><span>Tern 7</span><span>2m</span></div>
+    <div class="row" data-bd="row-big-boss"><span class="warn">★</span><span>big-boss</span><span class="ok">○ idle</span><span>stanbam-umbrella</span><span>Tern 1</span><span>1m</span></div>
+    <div class="row" data-bd="row-be-foundation-001"><span> </span><span>be-foundation-001</span><span class="acc">● working</span><span>.worktrees/be-foundation</span><span>Tern 4</span><span>12s</span></div>
+    <div class="row" data-bd="row-be-ops-001"><span> </span><span>be-ops-001</span><span class="acc">● working</span><span>.worktrees/be-ops</span><span>Tern 5</span><span>30s</span></div>
+    <div class="row" data-bd="row-be-push-001"><span> </span><span>be-push-001</span><span class="warn">◌ quiet</span><span>.worktrees/be-push</span><span>Tern 6</span><span>7m</span></div>
+    <div class="row" data-bd="row-be-rekognition-001"><span> </span><span>be-rekognition-001</span><span class="ok">○ idle</span><span>.worktrees/be-rekognition</span><span>Tern 8</span><span>3m</span></div>
+    <div class="row off" data-bd="row-be-replay-001"><span> </span><span>be-replay-001</span><span>– offline</span><span>.worktrees/be-replay</span><span>—</span><span>3h</span></div>
+    <div class="keys" data-bd="keys"><b>↑↓</b> select  <b>enter</b> thread  <b>/</b> filter  <b>g</b> go to pane  <b>tab</b> full screen  <b>esc</b> close</div>
+  </section>
+</main>

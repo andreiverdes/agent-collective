@@ -1,0 +1,30 @@
+<style>
+  .term { height: 100%; background: var(--bg); color: var(--fg); font: 13px/20px var(--mono); position: relative; padding-top: var(--safe-top); }
+  .dim { color: var(--muted); }
+  .warn { color: var(--warn); } .acc { color: var(--accent); } .ok { color: var(--ok); }
+  .behind { padding: 8px 12px; color: var(--muted); opacity: .35; white-space: pre; }
+  .modal { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); width: 560px; background: var(--surface); border: 1px solid var(--accent); padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+  .modal h2 { font: inherit; color: var(--accent); margin: 0; }
+  .field { font: inherit; width: 100%; background: var(--bg); color: var(--fg); border: 1px solid var(--border); padding: 4px 8px; border-radius: 3px; }
+  .note { white-space: pre-wrap; }
+  .hint { color: var(--muted); white-space: pre; }
+  .hint b { color: var(--fg); font-weight: 600; }
+</style>
+<main class="term" data-bd="screen">
+  <div class="behind" aria-hidden="true">collective default · you are agent-collective-update · omp
+ ★ be-audio-001          ● working   .worktrees/be-audio        omp  Tern 3   40s
+ ★ int-backend-001       ○ idle      .worktrees/int-backend     omp  Tern 7   2m
+ ★ big-boss              ○ idle      stanbam-umbrella           omp  Tern 1   1m
+   be-foundation-001     ● working   .worktrees/be-foundation   omp  Tern 4   12s
+   be-ops-001            ● working   .worktrees/be-ops          omp  Tern 5   30s
+   …</div>
+  <section class="modal" data-bd="rename-dialog">
+    <h2>Callsign for this session</h2>
+    <input class="field" data-bd="callsign-field" value="collective-dev" aria-label="New callsign">
+    <div class="note" data-bd="preview">agent-collective-update <span class="dim">→</span> <span class="acc">collective-dev</span>  <span class="ok">free</span></div>
+    <div class="note dim" data-bd="consequences">Saved for this session (survives restart). agent-collective-update is freed now, not reserved. Contacts who had the old name get "Unknown peer" and see collective-dev in their peers list.</div>
+    <div class="note" data-bd="clash-example"><span class="warn">If the name is held:</span> <span class="dim">big-boss is held by a running session → this session would be</span> big-boss-002</div>
+    <div class="hint" data-bd="keys"><b>enter</b> rename  <b>ctrl+u</b> clear (session name, else agent-collective-NNN)  <b>esc</b> cancel</div>
+    <span hidden data-bd="cancel" data-nav="back" data-nav-label="Esc: cancel"></span>
+  </section>
+</main>

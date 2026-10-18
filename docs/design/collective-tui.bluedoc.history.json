@@ -1,0 +1,352 @@
+{
+ "bluedoc_history": 1,
+ "revs": [
+  {
+   "rev": "1",
+   "date": "2026-10-18",
+   "built": "2026-10-18T12:59:44+00:00",
+   "head": {
+    "id": "collective-tui",
+    "title": "agent-collective: /collective TUI and Tern block",
+    "subtitle": "A keyboard panel for seeing the sessions in your profile and messaging them, inside omp/pi and as a native Tern block.",
+    "meta": {
+     "org": "agent-collective",
+     "kind": "Design",
+     "type": "design",
+     "rev": "1",
+     "date": "2026-10-18"
+    },
+    "state": [
+     {
+      "label": "wireframes: hi-fi after your picks",
+      "kind": "warn"
+     }
+    ],
+    "tldr": "Five desktop screens. In omp: `/collective` as a full-screen overlay (session list, a thread with one peer, rename) plus a bottom-panel variant. In Tern: the same data as a plugin block beside your agent panes. Pick the theme, the omp layout, message logging, offline rows and how Tern sends."
+   },
+   "sections": [
+    {
+     "id": "brief",
+     "title": "Brief",
+     "lead": "One panel answers \"who is in this profile, what are they doing, and what did we say\" without spending a model turn.",
+     "blocks": [
+      "af7dcb00731f9c01",
+      "15befa216d4ee87b",
+      "810fc0fb8673777e"
+     ]
+    },
+    {
+     "id": "screens",
+     "title": "Screens",
+     "lead": "Five screens on desktop: four in omp/pi, one Tern block; wireframes with real labels and data shaped like today's stanbam profile.",
+     "blocks": [
+      "efcc5706f9ddc5bc"
+     ]
+    }
+   ],
+   "screens": {
+    "omp-sessions": "58ae16a9f6f0724a",
+    "omp-sessions-panel": "5f77ed76dfab6d25",
+    "omp-thread": "808df2168eb35677",
+    "omp-rename": "3a2d5c8b88ce46ee",
+    "tern-block": "d0f8d6835a84550e"
+   },
+   "links": [
+    {
+     "from": "omp-sessions",
+     "el": "row-be-audio-001",
+     "to": "omp-thread",
+     "kind": "push",
+     "label": "Enter: open thread"
+    },
+    {
+     "from": "omp-sessions",
+     "el": "key-r",
+     "to": "omp-rename",
+     "kind": "modal",
+     "label": "Press r: rename this session",
+     "edge": true
+    },
+    {
+     "from": "omp-sessions-panel",
+     "el": "row-be-audio-001",
+     "to": "omp-thread",
+     "kind": "push",
+     "label": "Enter: open thread"
+    },
+    {
+     "from": "omp-thread",
+     "el": "back",
+     "to": null,
+     "kind": "back",
+     "label": "Esc: back to sessions"
+    },
+    {
+     "from": "omp-rename",
+     "el": "cancel",
+     "to": null,
+     "kind": "back",
+     "label": "Esc: cancel",
+     "edge": true
+    }
+   ]
+  }
+ ],
+ "blocks": {
+  "af7dcb00731f9c01": {
+   "type": "terms",
+   "items": [
+    {
+     "term": "session",
+     "md": "One running omp or pi agent with the extension loaded; it has a callsign such as `be-audio-001`."
+    },
+    {
+     "term": "collective",
+     "md": "Every session in one omp profile (`~/.agent-collective/<profile>/`). The TUI never shows another profile."
+    },
+    {
+     "term": "contact",
+     "md": "A session this one has messaged or heard from; starred and listed first."
+    },
+    {
+     "term": "offline",
+     "md": "A callsign still reserved for a session that is not running (up to 7 days after it last ran)."
+    },
+    {
+     "term": "thread",
+     "md": "The messages this session exchanged with one peer, oldest first."
+    }
+   ]
+  },
+  "810fc0fb8673777e": {
+   "type": "checklist",
+   "id": "brief",
+   "title": "Picks",
+   "numbered": false,
+   "items": [
+    {
+     "id": "framework",
+     "text": "Which framework do the screens use?",
+     "sub": "Recommend Plain kit: these are terminal cells, so only colour tokens and a monospace grid matter.",
+     "recommend": "plain",
+     "choices": [
+      {
+       "id": "plain",
+       "label": "Plain kit"
+      },
+      {
+       "id": "horizon",
+       "label": "HorizonUI"
+      }
+     ],
+     "detail": "The real UI is drawn by omp's TUI (`Component.render(width) → string[]`) and by Tern's TSP nodes (`tern.ui.table`, `list`, `badge`), not by HTML. The mock only needs a character grid and the theme's colours; a component framework would mislead about what can be drawn."
+    },
+    {
+     "id": "theme",
+     "text": "Which theme?",
+     "sub": "Recommend omp dark: it is what the overlay sits on; Tern re-skins its block with its own theme anyway.",
+     "recommend": "omp-dark",
+     "choices": [
+      {
+       "id": "omp-dark",
+       "label": "omp dark"
+      },
+      {
+       "id": "tern",
+       "label": "Tern"
+      },
+      {
+       "id": "light",
+       "label": "Light terminal"
+      }
+     ]
+    },
+    {
+     "id": "omp-layout",
+     "text": "Choose how /collective opens in omp and pi",
+     "sub": "Recommend full-screen overlay: 25 sessions need the rows; Esc returns to the transcript.",
+     "recommend": "full",
+     "choices": [
+      {
+       "id": "full",
+       "label": "Full-screen overlay"
+      },
+      {
+       "id": "panel",
+       "label": "Bottom panel (12 rows)"
+      }
+     ],
+     "detail": "Full-screen: the **Sessions** and **Thread** screens. Bottom panel: the **Sessions, bottom panel** variant; the transcript stays visible above, 8 sessions fit before scrolling, and the thread opens full-screen anyway."
+    },
+    {
+     "id": "message-log",
+     "text": "Decide whether each session keeps a message log",
+     "sub": "Recommend log: the thread view and outcome history need it; cost is one small file append per message.",
+     "recommend": "log",
+     "choices": [
+      {
+       "id": "log",
+       "label": "Keep a log"
+      },
+      {
+       "id": "none",
+       "label": "No log"
+      }
+     ],
+     "detail": "**Keep a log:** append one JSON line per sent or received message to `sessions/<session-id>.log.jsonl` (time, peer, direction, hop, outcome, body), capped at the last 500 lines. **No log:** the Thread screen can show only messages that arrived since the TUI opened; outcomes of earlier sends are lost."
+    },
+    {
+     "id": "offline-rows",
+     "text": "Decide whether offline callsigns appear in the list",
+     "sub": "Recommend show, dimmed: a send to them is answered \"offline\" anyway, so seeing them avoids the surprise.",
+     "recommend": "show",
+     "choices": [
+      {
+       "id": "show",
+       "label": "Show, dimmed"
+      },
+      {
+       "id": "toggle",
+       "label": "Hidden, `o` shows"
+      },
+      {
+       "id": "hide",
+       "label": "Never show"
+      }
+     ]
+    },
+    {
+     "id": "tern-send",
+     "text": "Choose how the Tern block sends a message",
+     "sub": "Recommend a CLI in the package: Tern plugins can run processes but cannot open unix sockets.",
+     "recommend": "cli",
+     "choices": [
+      {
+       "id": "cli",
+       "label": "agent-collective send CLI"
+      },
+      {
+       "id": "focus-only",
+       "label": "Go to pane only"
+      }
+     ],
+     "detail": "Tern's Luau API has `tern.fs` (read records) and `tern.process.run`, but no socket client. **CLI:** ship `bin/agent-collective send <callsign> <message>` in the package; the block runs it, and the peer sees the message as from `you (via Tern)` at hop 0. **Go to pane only:** the block lists sessions and jumps to their pane; you type there."
+    }
+   ]
+  },
+  "15befa216d4ee87b": {
+   "type": "text",
+   "md": "**Who:** you, running 5–30 sessions across worktrees, up to 3 per directory. **Where:** inside an omp or pi terminal (`/collective` opens it with `ctx.ui.custom`, both hosts support it), or as a Tern pane when the sessions run in Tern.\n\nEach screen must let you:\n\n- **Sessions:** see every session in the profile with its state (working, idle, quiet, offline), directory and harness. Also where it runs (Tern pane, herdr pane or tty); filter by text; star contacts first.\n- **Thread:** read what this session and one peer said, with each delivery's outcome (woken, aside, coalesced, refused) and hop; write a message and send it.\n- **Tern block:** the same list as a native Tern block, plus *go to pane*, because Tern knows where each session's pane is.\n\nAll data comes from files the extension already writes: records (`<pid>.json`), claims (`names/`) and session state (`sessions/<id>.json`). Reading them costs no model turn and no socket traffic. Two things are new and need your pick: a per-session message log (the thread view needs it) and a way for Tern to send."
+  },
+  "efcc5706f9ddc5bc": {
+   "type": "board",
+   "id": "main",
+   "targets": [
+    "desktop"
+   ],
+   "framework": "plain",
+   "entry": [
+    "omp-sessions",
+    "tern-block"
+   ],
+   "themes": [
+    {
+     "id": "omp-dark",
+     "label": "omp dark",
+     "tokens": {
+      "accent": "#7aa2f7",
+      "accent-fg": "#0b0e14",
+      "bg": "#0f1117",
+      "surface": "#161a23",
+      "fg": "#d6dbe5",
+      "muted": "#7c8597",
+      "border": "#2a3040",
+      "ok": "#9ece6a",
+      "warn": "#e0af68",
+      "risk": "#f7768e"
+     }
+    },
+    {
+     "id": "tern",
+     "label": "Tern",
+     "tokens": {
+      "accent": "#c4a7e7",
+      "accent-fg": "#191724",
+      "bg": "#191724",
+      "surface": "#1f1d2e",
+      "fg": "#e0def4",
+      "muted": "#908caa",
+      "border": "#2a273f",
+      "ok": "#9ccfd8",
+      "warn": "#f6c177",
+      "risk": "#eb6f92"
+     }
+    },
+    {
+     "id": "light",
+     "label": "Light terminal",
+     "tokens": {
+      "accent": "#3b5bdb",
+      "accent-fg": "#ffffff",
+      "bg": "#fbfbf8",
+      "surface": "#f1f1ec",
+      "fg": "#24292f",
+      "muted": "#6e7781",
+      "border": "#d8dee4",
+      "ok": "#1a7f37",
+      "warn": "#9a6700",
+      "risk": "#cf222e"
+     }
+    }
+   ],
+   "motion": {
+    "fast": "120ms",
+    "base": "200ms",
+    "slow": "320ms",
+    "ease": "cubic-bezier(.2,0,0,1)"
+   },
+   "artboards": [
+    {
+     "id": "omp-sessions",
+     "title": "omp · /collective: sessions",
+     "device": "desktop",
+     "fidelity": "wireframe"
+    },
+    {
+     "id": "omp-sessions-panel",
+     "title": "omp · /collective: sessions, bottom panel",
+     "device": "desktop",
+     "fidelity": "wireframe",
+     "variantOf": "omp-sessions"
+    },
+    {
+     "id": "omp-thread",
+     "title": "omp · /collective: thread with be-audio-001",
+     "device": "desktop",
+     "fidelity": "wireframe"
+    },
+    {
+     "id": "omp-rename",
+     "title": "omp · /collective: rename this session",
+     "device": "desktop",
+     "fidelity": "wireframe"
+    },
+    {
+     "id": "tern-block",
+     "title": "Tern · Collective block beside agent panes",
+     "device": "desktop",
+     "fidelity": "wireframe",
+     "x": 0,
+     "y": 1000
+    }
+   ]
+  }
+ },
+ "html": {
+  "58ae16a9f6f0724a": "<style>\n  .term { height: 100%; background: var(--bg); color: var(--fg); font: 13px/20px var(--mono); display: flex; flex-direction: column; padding-top: var(--safe-top); }\n  .bar { display: flex; gap: 16px; padding: 4px 12px; background: var(--surface); border-bottom: 1px solid var(--border); }\n  .bar b { color: var(--accent); font-weight: 600; }\n  .dim { color: var(--muted); }\n  .ok { color: var(--ok); } .warn { color: var(--warn); } .risk { color: var(--risk); } .acc { color: var(--accent); }\n  .body { flex: 1; display: grid; grid-template-columns: 1fr 380px; min-height: 0; }\n  .list { padding: 6px 0; border-right: 1px solid var(--border); overflow: hidden; }\n  .row { display: grid; grid-template-columns: 20px 200px 96px 1fr 44px 104px 48px; padding: 0 12px; white-space: pre; }\n  .row.head { color: var(--muted); border-bottom: 1px solid var(--border); margin-bottom: 4px; }\n  .row.sel { background: color-mix(in srgb, var(--accent) 22%, transparent); }\n  .row.off { color: var(--muted); }\n  .sep { padding: 2px 12px; color: var(--muted); }\n  .side { padding: 8px 14px; display: flex; flex-direction: column; gap: 10px; }\n  .kv { display: grid; grid-template-columns: 96px 1fr; white-space: pre; }\n  .kv span:nth-child(odd) { color: var(--muted); }\n  .box { border: 1px solid var(--border); padding: 6px 8px; }\n  .keys { padding: 4px 12px; border-top: 1px solid var(--border); background: var(--surface); color: var(--muted); white-space: pre; }\n  .keys b { color: var(--fg); font-weight: 600; }\n  .filter { padding: 4px 12px; border-bottom: 1px solid var(--border); white-space: pre; }\n</style>\n<main class=\"term\" data-bd=\"screen\">\n  <div class=\"bar\" data-bd=\"header\">\n    <span><b>collective</b> default</span>\n    <span>you are <span class=\"acc\">agent-collective-update</span> · omp</span>\n    <span class=\"dim\">14 running · 1 quiet · 2 offline · 3 contacts</span>\n  </div>\n  <div class=\"filter\" data-bd=\"filter\"><span class=\"dim\">/</span> <span class=\"dim\">filter by callsign or directory</span></div>\n  <div class=\"body\">\n    <section class=\"list\" data-bd=\"sessions\">\n      <div class=\"row head\"><span> </span><span>callsign</span><span>state</span><span>directory</span><span>via</span><span>where</span><span>seen</span></div>\n      <div class=\"sep\">contacts</div>\n      <div class=\"row sel\" data-bd=\"row-be-audio-001\" data-nav=\"omp-thread\" data-nav-label=\"Enter: open thread\"><span class=\"warn\">★</span><span>be-audio-001</span><span class=\"acc\">● working</span><span>.worktrees/be-audio</span><span>omp</span><span>Tern 3</span><span>40s</span></div>\n      <div class=\"row\" data-bd=\"row-int-backend-001\"><span class=\"warn\">★</span><span>int-backend-001</span><span class=\"ok\">○ idle</span><span>.worktrees/int-backend</span><span>omp</span><span>Tern 7</span><span>2m</span></div>\n      <div class=\"row\" data-bd=\"row-big-boss\"><span class=\"warn\">★</span><span>big-boss</span><span class=\"ok\">○ idle</span><span>stanbam-umbrella</span><span>omp</span><span>Tern 1</span><span>1m</span></div>\n      <div class=\"sep\">others</div>\n      <div class=\"row\" data-bd=\"row-be-foundation-001\"><span> </span><span>be-foundation-001</span><span class=\"acc\">● working</span><span>.worktrees/be-foundation</span><span>omp</span><span>Tern 4</span><span>12s</span></div>\n      <div class=\"row\" data-bd=\"row-be-ops-001\"><span> </span><span>be-ops-001</span><span class=\"acc\">● working</span><span>.worktrees/be-ops</span><span>omp</span><span>Tern 5</span><span>30s</span></div>\n      <div class=\"row\" data-bd=\"row-be-push-001\"><span> </span><span>be-push-001</span><span class=\"warn\">◌ quiet</span><span>.worktrees/be-push</span><span>omp</span><span>Tern 6</span><span>7m</span></div>\n      <div class=\"row\" data-bd=\"row-be-rekognition-001\"><span> </span><span>be-rekognition-001</span><span class=\"ok\">○ idle</span><span>.worktrees/be-rekognition</span><span>omp</span><span>Tern 8</span><span>3m</span></div>\n      <div class=\"row\" data-bd=\"row-bluedoc\"><span> </span><span>bluedoc</span><span class=\"ok\">○ idle</span><span>~/Developer/AI</span><span>pi</span><span>tty s014</span><span>5m</span></div>\n      <div class=\"row\" data-bd=\"row-docs-legal-001\"><span> </span><span>docs-legal-001</span><span class=\"ok\">○ idle</span><span>.worktrees/docs-legal</span><span>omp</span><span>Tern 9</span><span>4m</span></div>\n      <div class=\"row\" data-bd=\"row-m-auth-email-001\"><span> </span><span>m-auth-email-001</span><span class=\"acc\">● working</span><span>.worktrees/m-auth-email</span><span>omp</span><span>Tern 10</span><span>8s</span></div>\n      <div class=\"row\" data-bd=\"row-m-gates-001\"><span> </span><span>m-gates-001</span><span class=\"ok\">○ idle</span><span>.worktrees/m-gates</span><span>omp</span><span>Tern 11</span><span>2m</span></div>\n      <div class=\"row\" data-bd=\"row-m-payments-001\"><span> </span><span>m-payments-001</span><span class=\"acc\">● working</span><span>.worktrees/m-payments</span><span>omp</span><span>Tern 12</span><span>20s</span></div>\n      <div class=\"row\" data-bd=\"row-stanbam-umbrella-001\"><span> </span><span>stanbam-umbrella-001</span><span class=\"ok\">○ idle</span><span>stanbam-umbrella</span><span>omp</span><span>herdr wC:p2</span><span>6m</span></div>\n      <div class=\"row\" data-bd=\"row-stanbam-umbrella-002\"><span> </span><span>stanbam-umbrella-002</span><span class=\"acc\">● working</span><span>stanbam-umbrella</span><span>omp</span><span>Tern 2</span><span>15s</span></div>\n      <div class=\"sep\">offline · reserved for their sessions</div>\n      <div class=\"row off\" data-bd=\"row-be-replay-001\"><span> </span><span>be-replay-001</span><span>– offline</span><span>.worktrees/be-replay</span><span>omp</span><span>—</span><span>3h</span></div>\n      <div class=\"row off\" data-bd=\"row-m-privacy-001\"><span> </span><span>m-privacy-001</span><span>– offline</span><span>.worktrees/m-privacy</span><span>omp</span><span>—</span><span>2d</span></div>\n    </section>\n    <aside class=\"side\" data-bd=\"detail\">\n      <div><span class=\"acc\">be-audio-001</span> <span class=\"dim\">· contact</span></div>\n      <div class=\"kv\" data-bd=\"detail-facts\">\n        <span>directory</span><span>…/.worktrees/be-audio</span>\n        <span>harness</span><span>omp · claude-opus-5</span>\n        <span>state</span><span class=\"acc\">working, 4m into a turn</span>\n        <span>where</span><span>Tern pane 3 · tab be-audio</span>\n        <span>pid</span><span>14540</span>\n        <span>session</span><span>01a149ca…f4ae</span>\n        <span>running</span><span>3h 12m</span>\n      </div>\n      <div class=\"box\" data-bd=\"last-message\">\n        <div class=\"dim\">last message · 14:02</div>\n        <div>you → be-audio-001 <span class=\"ok\">woken</span></div>\n        <div class=\"dim\">ship the migration once int-backend is green; ping me with the commit</div>\n      </div>\n      <div class=\"box\" data-bd=\"actions\">\n        <div><b>enter</b> thread &amp; message</div>\n        <div><b>g</b> go to Tern pane 3</div>\n        <div><b>y</b> copy callsign</div>\n      </div>\n    </aside>\n  </div>\n  <div class=\"keys\" data-bd=\"keys\"><b>↑↓</b> select  <b>enter</b> thread  <b>/</b> filter  <b>c</b> contacts only  <b>g</b> go to pane  <b>r</b> rename me  <b>esc</b> close</div>\n  <i hidden data-bd=\"key-r\" data-nav=\"modal:omp-rename\" data-nav-label=\"Press r: rename this session\"></i>\n</main>\n",
+  "5f77ed76dfab6d25": "<style>\n  .term { height: 100%; background: var(--bg); color: var(--fg); font: 13px/20px var(--mono); display: flex; flex-direction: column; padding-top: var(--safe-top); }\n  .dim { color: var(--muted); }\n  .ok { color: var(--ok); } .warn { color: var(--warn); } .acc { color: var(--accent); }\n  .transcript { flex: 1; padding: 10px 16px; overflow: hidden; white-space: pre-wrap; }\n  .transcript .you { color: var(--accent); }\n  .panel { border-top: 2px solid var(--accent); background: var(--surface); }\n  .ptitle { display: flex; justify-content: space-between; padding: 2px 12px; }\n  .ptitle b { color: var(--accent); font-weight: 600; }\n  .row { display: grid; grid-template-columns: 20px 220px 100px 1fr 120px 48px; padding: 0 12px; white-space: pre; }\n  .row.sel { background: color-mix(in srgb, var(--accent) 22%, transparent); }\n  .row.off { color: var(--muted); }\n  .keys { padding: 2px 12px; color: var(--muted); white-space: pre; border-top: 1px solid var(--border); }\n  .keys b { color: var(--fg); font-weight: 600; }\n</style>\n<main class=\"term\" data-bd=\"screen\">\n  <section class=\"transcript\" data-bd=\"transcript\"><span class=\"you\">› ask be-audio whether the migration landed</span>\n\n<span class=\"dim\">● peers filter=\"audio\"</span>\n  1 peer: be-audio-001 — omp in …/.worktrees/be-audio (working, contact)\n<span class=\"dim\">● peer_send to=\"be-audio-001\"</span>\n  Delivered to be-audio-001 (aside). Its reply will arrive as a peer message.\n\nI asked be-audio-001; it is mid-turn, so the question arrived as an aside. I'll relay its answer.\n\n<span class=\"you\">› /collective</span></section>\n  <section class=\"panel\" data-bd=\"panel\">\n    <div class=\"ptitle\"><span><b>collective</b> default · you are <span class=\"acc\">agent-collective-update</span></span><span class=\"dim\">8 of 17 · ↓ more</span></div>\n    <div class=\"row sel\" data-bd=\"row-be-audio-001\" data-nav=\"omp-thread\" data-nav-label=\"Enter: open thread\"><span class=\"warn\">★</span><span>be-audio-001</span><span class=\"acc\">● working</span><span>.worktrees/be-audio</span><span>Tern 3</span><span>40s</span></div>\n    <div class=\"row\" data-bd=\"row-int-backend-001\"><span class=\"warn\">★</span><span>int-backend-001</span><span class=\"ok\">○ idle</span><span>.worktrees/int-backend</span><span>Tern 7</span><span>2m</span></div>\n    <div class=\"row\" data-bd=\"row-big-boss\"><span class=\"warn\">★</span><span>big-boss</span><span class=\"ok\">○ idle</span><span>stanbam-umbrella</span><span>Tern 1</span><span>1m</span></div>\n    <div class=\"row\" data-bd=\"row-be-foundation-001\"><span> </span><span>be-foundation-001</span><span class=\"acc\">● working</span><span>.worktrees/be-foundation</span><span>Tern 4</span><span>12s</span></div>\n    <div class=\"row\" data-bd=\"row-be-ops-001\"><span> </span><span>be-ops-001</span><span class=\"acc\">● working</span><span>.worktrees/be-ops</span><span>Tern 5</span><span>30s</span></div>\n    <div class=\"row\" data-bd=\"row-be-push-001\"><span> </span><span>be-push-001</span><span class=\"warn\">◌ quiet</span><span>.worktrees/be-push</span><span>Tern 6</span><span>7m</span></div>\n    <div class=\"row\" data-bd=\"row-be-rekognition-001\"><span> </span><span>be-rekognition-001</span><span class=\"ok\">○ idle</span><span>.worktrees/be-rekognition</span><span>Tern 8</span><span>3m</span></div>\n    <div class=\"row off\" data-bd=\"row-be-replay-001\"><span> </span><span>be-replay-001</span><span>– offline</span><span>.worktrees/be-replay</span><span>—</span><span>3h</span></div>\n    <div class=\"keys\" data-bd=\"keys\"><b>↑↓</b> select  <b>enter</b> thread  <b>/</b> filter  <b>g</b> go to pane  <b>tab</b> full screen  <b>esc</b> close</div>\n  </section>\n</main>\n",
+  "808df2168eb35677": "<style>\n  .term { height: 100%; background: var(--bg); color: var(--fg); font: 13px/20px var(--mono); display: flex; flex-direction: column; padding-top: var(--safe-top); }\n  .bar { display: flex; gap: 16px; padding: 4px 12px; background: var(--surface); border-bottom: 1px solid var(--border); }\n  .bar b { color: var(--accent); font-weight: 600; }\n  .dim { color: var(--muted); }\n  .ok { color: var(--ok); } .warn { color: var(--warn); } .risk { color: var(--risk); } .acc { color: var(--accent); }\n  .log { flex: 1; padding: 8px 16px; overflow: hidden; display: flex; flex-direction: column; gap: 10px; }\n  .msg { display: grid; grid-template-columns: 52px 210px 1fr; gap: 0 8px; }\n  .msg .who { white-space: pre; }\n  .msg .text { white-space: pre-wrap; }\n  .tag { display: inline-block; padding: 0 6px; border: 1px solid currentColor; border-radius: 3px; font-size: 11px; line-height: 16px; margin-left: 6px; }\n  .day { color: var(--muted); text-align: center; }\n  .compose { border-top: 1px solid var(--border); padding: 6px 12px; background: var(--surface); }\n  .compose .field { font: inherit; width: 100%; background: var(--bg); color: var(--fg); border: 1px solid var(--accent); padding: 4px 8px; border-radius: 3px; }\n  .hint { color: var(--muted); white-space: pre; padding-top: 4px; }\n  .hint b { color: var(--fg); font-weight: 600; }\n</style>\n<main class=\"term\" data-bd=\"screen\">\n  <div class=\"bar\" data-bd=\"header\">\n    <span data-bd=\"back\" data-nav=\"back\" data-nav-label=\"Esc: back to sessions\"><b>‹ collective</b></span>\n    <span>you <span class=\"dim\">⇄</span> <span class=\"acc\">be-audio-001</span></span>\n    <span class=\"acc\">● working</span>\n    <span class=\"dim\">omp · …/.worktrees/be-audio · Tern pane 3</span>\n  </div>\n  <section class=\"log\" data-bd=\"thread\">\n    <div class=\"day\">today</div>\n    <div class=\"msg\" data-bd=\"msg-1\"><span class=\"dim\">12:20</span><span class=\"who\">be-audio-001 → you <span class=\"tag dim\">hop 0</span></span><span class=\"text\">Lane be-audio started. I own internal/audiomod and cmd/transcribe; I won't touch internal/config.</span></div>\n    <div class=\"msg\" data-bd=\"msg-2\"><span class=\"dim\">12:21</span><span class=\"who\">you → be-audio-001 <span class=\"tag ok\">woken</span></span><span class=\"text\">Ack. int-backend-001 integrates; send it your checkpoint commits.</span></div>\n    <div class=\"msg\" data-bd=\"msg-3\"><span class=\"dim\">12:29</span><span class=\"who\">be-audio-001 → you <span class=\"tag dim\">hop 2</span></span><span class=\"text\">2 messages arrived together:\n1. Need ASSEMBLYAI_API_KEY; config.go isn't mine.\n2. Can I read it from audiomod's own env lookup instead?</span></div>\n    <div class=\"msg\" data-bd=\"msg-4\"><span class=\"dim\">12:30</span><span class=\"who\">you → be-audio-001 <span class=\"tag risk\">refused</span></span><span class=\"text dim\">Yes, read it in audiomod… — chain limit: this reply would be hop 5 of 4. Ask the user to continue.</span></div>\n    <div class=\"msg\" data-bd=\"msg-5\"><span class=\"dim\">14:02</span><span class=\"who\">you → be-audio-001 <span class=\"tag ok\">woken</span></span><span class=\"text\">Ship the migration once int-backend is green; ping me with the commit.</span></div>\n    <div class=\"msg\" data-bd=\"msg-6\"><span class=\"dim\">14:41</span><span class=\"who\">you → be-audio-001 <span class=\"tag acc\">aside</span></span><span class=\"text\">Did the migration land?</span></div>\n  </section>\n  <section class=\"compose\" data-bd=\"composer\">\n    <input class=\"field\" data-bd=\"message-field\" value=\"Also send int-backend-001 the commit hash when it does\" aria-label=\"Message be-audio-001\">\n    <div class=\"hint\"><b>enter</b> send as agent-collective-update (hop 0)  <b>shift+enter</b> new line  <b>g</b> go to pane  <b>esc</b> back</div>\n  </section>\n</main>\n",
+  "d0f8d6835a84550e": "<style>\n  .win { height: 100%; background: var(--bg); color: var(--fg); font: 13px/20px var(--font); display: flex; flex-direction: column; padding-top: var(--safe-top); }\n  .mono { font-family: var(--mono); }\n  .dim { color: var(--muted); }\n  .ok { color: var(--ok); } .warn { color: var(--warn); } .acc { color: var(--accent); }\n  .tabs { display: flex; gap: 2px; padding: 4px 8px 0; background: var(--surface); border-bottom: 1px solid var(--border); }\n  .tab { padding: 4px 12px; border-radius: 6px 6px 0 0; font-size: 12px; border-top: 2px solid transparent; }\n  .tab.act { background: var(--bg); }\n  .tab.working { border-top-color: var(--accent); } .tab.done { border-top-color: var(--ok); } .tab.waiting { border-top-color: var(--warn); }\n  .split { flex: 1; display: grid; grid-template-columns: 1fr 1fr 440px; min-height: 0; }\n  .pane { border-right: 1px solid var(--border); padding: 8px 12px; font: 12px/18px var(--mono); overflow: hidden; white-space: pre-wrap; }\n  .pane .title { font-family: var(--font); color: var(--muted); margin-bottom: 6px; }\n  .pane.hl { outline: 2px solid var(--accent); outline-offset: -2px; }\n  .block { display: flex; flex-direction: column; min-height: 0; background: var(--surface); }\n  .bhead { padding: 8px 12px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }\n  .bhead b { font-weight: 600; }\n  .pills { display: flex; gap: 6px; padding: 6px 12px; }\n  .pill { font-size: 11px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--border); }\n  .pill.on { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }\n  table { border-collapse: collapse; width: 100%; font-size: 12px; }\n  th { text-align: left; color: var(--muted); font-weight: 500; padding: 2px 8px; border-bottom: 1px solid var(--border); }\n  td { padding: 3px 8px; white-space: nowrap; }\n  tr.sel td { background: color-mix(in srgb, var(--accent) 20%, transparent); }\n  tr.off td { color: var(--muted); }\n  .badge { font-size: 11px; padding: 0 6px; border-radius: 999px; }\n  .b-work { background: color-mix(in srgb, var(--accent) 25%, transparent); color: var(--accent); }\n  .b-idle { background: color-mix(in srgb, var(--ok) 20%, transparent); color: var(--ok); }\n  .b-quiet { background: color-mix(in srgb, var(--warn) 22%, transparent); color: var(--warn); }\n  .b-off { border: 1px solid var(--border); color: var(--muted); }\n  .scroll { flex: 1; overflow: hidden; }\n  .card { margin: 8px 12px; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; }\n  .kv { display: grid; grid-template-columns: 84px 1fr; font-size: 12px; row-gap: 2px; }\n  .kv span:nth-child(odd) { color: var(--muted); }\n  .acts { display: flex; gap: 6px; margin-top: 8px; }\n  .btn { font: 12px var(--font); padding: 3px 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); color: var(--fg); }\n  .btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }\n  .dock { border-top: 1px solid var(--border); padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }\n  .field { font: 12px var(--font); width: 100%; background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 4px; padding: 5px 8px; }\n</style>\n<main class=\"win\" data-bd=\"window\">\n  <nav class=\"tabs\" data-bd=\"tabs\">\n    <span class=\"tab act working\" data-bd=\"tab-be-audio\">be-audio</span>\n    <span class=\"tab working\" data-bd=\"tab-umbrella\">stanbam-umbrella</span>\n    <span class=\"tab done\" data-bd=\"tab-int-backend\">int-backend</span>\n    <span class=\"tab waiting\" data-bd=\"tab-m-gates\">m-gates</span>\n    <span class=\"tab done\" data-bd=\"tab-ai\">AI</span>\n  </nav>\n  <div class=\"split\">\n    <section class=\"pane hl\" data-bd=\"pane-be-audio\"><div class=\"title\">omp · be-audio-001 · pane 3</div><span class=\"acc\">[collective] message from peer `agent-collective-update` to you (`be-audio-001`):</span>\n\nDid the migration land?\n\n● bash  go test ./internal/audiomod/...\n  ok   stanbam/internal/audiomod  2.41s\n● bash  git log --oneline -1\n  7e5aa09 audiomod: replay_state migration\n\nLanded as 7e5aa09. Replying now.</section>\n    <section class=\"pane\" data-bd=\"pane-int-backend\"><div class=\"title\">omp · int-backend-001 · pane 7</div>Baselines on launch/integration: backend d300e23\ngo vet + go test -race: 404 pass, 0 skip, 0 fail\n\n<span class=\"dim\">› waiting for be-audio checkpoint</span></section>\n    <section class=\"block\" data-bd=\"collective-block\">\n      <div class=\"bhead\"><span><b>Collective</b> <span class=\"dim\">· default · 17</span></span><span class=\"dim mono\" data-bd=\"refresh\">↻ 2s</span></div>\n      <div class=\"pills\" data-bd=\"filters\">\n        <span class=\"pill on\" data-bd=\"filter-all\">All</span>\n        <span class=\"pill\" data-bd=\"filter-this-window\">This window</span>\n        <span class=\"pill\" data-bd=\"filter-working\">Working</span>\n        <span class=\"pill\" data-bd=\"filter-offline\">Offline</span>\n      </div>\n      <div class=\"scroll\">\n        <table data-bd=\"sessions\">\n          <thead><tr><th>callsign</th><th>state</th><th>directory</th><th>pane</th></tr></thead>\n          <tbody>\n            <tr class=\"sel\" data-bd=\"row-be-audio-001\"><td class=\"mono\">be-audio-001</td><td><span class=\"badge b-work\">working</span></td><td>be-audio</td><td>3 ↗</td></tr>\n            <tr data-bd=\"row-int-backend-001\"><td class=\"mono\">int-backend-001</td><td><span class=\"badge b-idle\">idle</span></td><td>int-backend</td><td>7 ↗</td></tr>\n            <tr data-bd=\"row-big-boss\"><td class=\"mono\">big-boss</td><td><span class=\"badge b-idle\">idle</span></td><td>stanbam-umbrella</td><td>1 ↗</td></tr>\n            <tr data-bd=\"row-stanbam-umbrella-002\"><td class=\"mono\">stanbam-umbrella-002</td><td><span class=\"badge b-work\">working</span></td><td>stanbam-umbrella</td><td>2 ↗</td></tr>\n            <tr data-bd=\"row-m-gates-001\"><td class=\"mono\">m-gates-001</td><td><span class=\"badge b-quiet\">waiting input</span></td><td>m-gates</td><td>11 ↗</td></tr>\n            <tr data-bd=\"row-be-push-001\"><td class=\"mono\">be-push-001</td><td><span class=\"badge b-quiet\">quiet 7m</span></td><td>be-push</td><td>6 ↗</td></tr>\n            <tr data-bd=\"row-stanbam-umbrella-001\"><td class=\"mono\">stanbam-umbrella-001</td><td><span class=\"badge b-idle\">idle</span></td><td>stanbam-umbrella</td><td class=\"dim\">herdr</td></tr>\n            <tr data-bd=\"row-bluedoc\"><td class=\"mono\">bluedoc</td><td><span class=\"badge b-idle\">idle</span></td><td>AI</td><td class=\"dim\">tty</td></tr>\n            <tr class=\"off\" data-bd=\"row-be-replay-001\"><td class=\"mono\">be-replay-001</td><td><span class=\"badge b-off\">offline 3h</span></td><td>be-replay</td><td>—</td></tr>\n          </tbody>\n        </table>\n        <div class=\"card\" data-bd=\"detail\">\n          <div class=\"kv\">\n            <span>callsign</span><span class=\"mono\">be-audio-001</span>\n            <span>harness</span><span>omp · claude-opus-5</span>\n            <span>directory</span><span>…/.worktrees/be-audio</span>\n            <span>turn</span><span class=\"acc\">working 4m · bash</span>\n            <span>last</span><span>14:41 you → aside “Did the migration land?”</span>\n          </div>\n          <div class=\"acts\">\n            <button class=\"btn primary\" data-bd=\"go-to-pane\">Go to pane 3</button>\n            <button class=\"btn\" data-bd=\"open-thread\">Thread</button>\n            <button class=\"btn\" data-bd=\"copy-callsign\">Copy callsign</button>\n          </div>\n        </div>\n      </div>\n      <div class=\"dock\" data-bd=\"composer\">\n        <input class=\"field\" data-bd=\"message-field\" placeholder=\"Message be-audio-001 as you (via Tern)…\">\n        <div class=\"dim\" style=\"font-size:11px\">Enter sends · arrives as from <span class=\"mono\">you (via Tern)</span>, hop 0 · ⌘↑↓ select</div>\n      </div>\n    </section>\n  </div>\n</main>\n",
+  "3a2d5c8b88ce46ee": "<style>\n  .term { height: 100%; background: var(--bg); color: var(--fg); font: 13px/20px var(--mono); position: relative; padding-top: var(--safe-top); }\n  .dim { color: var(--muted); }\n  .warn { color: var(--warn); } .acc { color: var(--accent); } .ok { color: var(--ok); }\n  .behind { padding: 8px 12px; color: var(--muted); opacity: .35; white-space: pre; }\n  .modal { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); width: 560px; background: var(--surface); border: 1px solid var(--accent); padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }\n  .modal h2 { font: inherit; color: var(--accent); margin: 0; }\n  .field { font: inherit; width: 100%; background: var(--bg); color: var(--fg); border: 1px solid var(--border); padding: 4px 8px; border-radius: 3px; }\n  .note { white-space: pre-wrap; }\n  .hint { color: var(--muted); white-space: pre; }\n  .hint b { color: var(--fg); font-weight: 600; }\n</style>\n<main class=\"term\" data-bd=\"screen\">\n  <div class=\"behind\" aria-hidden=\"true\">collective default · you are agent-collective-update · omp\n ★ be-audio-001          ● working   .worktrees/be-audio        omp  Tern 3   40s\n ★ int-backend-001       ○ idle      .worktrees/int-backend     omp  Tern 7   2m\n ★ big-boss              ○ idle      stanbam-umbrella           omp  Tern 1   1m\n   be-foundation-001     ● working   .worktrees/be-foundation   omp  Tern 4   12s\n   be-ops-001            ● working   .worktrees/be-ops          omp  Tern 5   30s\n   …</div>\n  <section class=\"modal\" data-bd=\"rename-dialog\">\n    <h2>Callsign for this session</h2>\n    <input class=\"field\" data-bd=\"callsign-field\" value=\"collective-dev\" aria-label=\"New callsign\">\n    <div class=\"note\" data-bd=\"preview\">agent-collective-update <span class=\"dim\">→</span> <span class=\"acc\">collective-dev</span>  <span class=\"ok\">free</span></div>\n    <div class=\"note dim\" data-bd=\"consequences\">Saved for this session (survives restart). agent-collective-update is freed now, not reserved. Contacts who had the old name get \"Unknown peer\" and see collective-dev in their peers list.</div>\n    <div class=\"note\" data-bd=\"clash-example\"><span class=\"warn\">If the name is held:</span> <span class=\"dim\">big-boss is held by a running session → this session would be</span> big-boss-002</div>\n    <div class=\"hint\" data-bd=\"keys\"><b>enter</b> rename  <b>ctrl+u</b> clear (session name, else agent-collective-NNN)  <b>esc</b> cancel</div>\n    <span hidden data-bd=\"cancel\" data-nav=\"back\" data-nav-label=\"Esc: cancel\"></span>\n  </section>\n</main>\n"
+ }
+}

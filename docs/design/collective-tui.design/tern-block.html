@@ -1,0 +1,107 @@
+<style>
+  .win { height: 100%; background: var(--bg); color: var(--fg); font: 13px/20px var(--font); display: flex; flex-direction: column; padding-top: var(--safe-top); }
+  .mono { font-family: var(--mono); }
+  .dim { color: var(--muted); }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .acc { color: var(--accent); }
+  .tabs { display: flex; gap: 2px; padding: 4px 8px 0; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .tab { padding: 4px 12px; border-radius: 6px 6px 0 0; font-size: 12px; border-top: 2px solid transparent; }
+  .tab.act { background: var(--bg); }
+  .tab.working { border-top-color: var(--accent); } .tab.done { border-top-color: var(--ok); } .tab.waiting { border-top-color: var(--warn); }
+  .split { flex: 1; display: grid; grid-template-columns: 1fr 1fr 440px; min-height: 0; }
+  .pane { border-right: 1px solid var(--border); padding: 8px 12px; font: 12px/18px var(--mono); overflow: hidden; white-space: pre-wrap; }
+  .pane .title { font-family: var(--font); color: var(--muted); margin-bottom: 6px; }
+  .pane.hl { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .block { display: flex; flex-direction: column; min-height: 0; background: var(--surface); }
+  .bhead { padding: 8px 12px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .bhead b { font-weight: 600; }
+  .pills { display: flex; gap: 6px; padding: 6px 12px; }
+  .pill { font-size: 11px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--border); }
+  .pill.on { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  th { text-align: left; color: var(--muted); font-weight: 500; padding: 2px 8px; border-bottom: 1px solid var(--border); }
+  td { padding: 3px 8px; white-space: nowrap; }
+  tr.sel td { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+  tr.off td { color: var(--muted); }
+  .badge { font-size: 11px; padding: 0 6px; border-radius: 999px; }
+  .b-work { background: color-mix(in srgb, var(--accent) 25%, transparent); color: var(--accent); }
+  .b-idle { background: color-mix(in srgb, var(--ok) 20%, transparent); color: var(--ok); }
+  .b-quiet { background: color-mix(in srgb, var(--warn) 22%, transparent); color: var(--warn); }
+  .b-off { border: 1px solid var(--border); color: var(--muted); }
+  .scroll { flex: 1; overflow: hidden; }
+  .card { margin: 8px 12px; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; }
+  .kv { display: grid; grid-template-columns: 84px 1fr; font-size: 12px; row-gap: 2px; }
+  .kv span:nth-child(odd) { color: var(--muted); }
+  .acts { display: flex; gap: 6px; margin-top: 8px; }
+  .btn { font: 12px var(--font); padding: 3px 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); color: var(--fg); }
+  .btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  .dock { border-top: 1px solid var(--border); padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
+  .field { font: 12px var(--font); width: 100%; background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 4px; padding: 5px 8px; }
+</style>
+<main class="win" data-bd="window">
+  <nav class="tabs" data-bd="tabs">
+    <span class="tab act working" data-bd="tab-be-audio">be-audio</span>
+    <span class="tab working" data-bd="tab-umbrella">stanbam-umbrella</span>
+    <span class="tab done" data-bd="tab-int-backend">int-backend</span>
+    <span class="tab waiting" data-bd="tab-m-gates">m-gates</span>
+    <span class="tab done" data-bd="tab-ai">AI</span>
+  </nav>
+  <div class="split">
+    <section class="pane hl" data-bd="pane-be-audio"><div class="title">omp · be-audio-001 · pane 3</div><span class="acc">[collective] message from peer `agent-collective-update` to you (`be-audio-001`):</span>
+
+Did the migration land?
+
+● bash  go test ./internal/audiomod/...
+  ok   stanbam/internal/audiomod  2.41s
+● bash  git log --oneline -1
+  7e5aa09 audiomod: replay_state migration
+
+Landed as 7e5aa09. Replying now.</section>
+    <section class="pane" data-bd="pane-int-backend"><div class="title">omp · int-backend-001 · pane 7</div>Baselines on launch/integration: backend d300e23
+go vet + go test -race: 404 pass, 0 skip, 0 fail
+
+<span class="dim">› waiting for be-audio checkpoint</span></section>
+    <section class="block" data-bd="collective-block">
+      <div class="bhead"><span><b>Collective</b> <span class="dim">· default · 17</span></span><span class="dim mono" data-bd="refresh">↻ 2s</span></div>
+      <div class="pills" data-bd="filters">
+        <span class="pill on" data-bd="filter-all">All</span>
+        <span class="pill" data-bd="filter-this-window">This window</span>
+        <span class="pill" data-bd="filter-working">Working</span>
+        <span class="pill" data-bd="filter-offline">Offline</span>
+      </div>
+      <div class="scroll">
+        <table data-bd="sessions">
+          <thead><tr><th>callsign</th><th>state</th><th>directory</th><th>pane</th></tr></thead>
+          <tbody>
+            <tr class="sel" data-bd="row-be-audio-001"><td class="mono">be-audio-001</td><td><span class="badge b-work">working</span></td><td>be-audio</td><td>3 ↗</td></tr>
+            <tr data-bd="row-int-backend-001"><td class="mono">int-backend-001</td><td><span class="badge b-idle">idle</span></td><td>int-backend</td><td>7 ↗</td></tr>
+            <tr data-bd="row-big-boss"><td class="mono">big-boss</td><td><span class="badge b-idle">idle</span></td><td>stanbam-umbrella</td><td>1 ↗</td></tr>
+            <tr data-bd="row-stanbam-umbrella-002"><td class="mono">stanbam-umbrella-002</td><td><span class="badge b-work">working</span></td><td>stanbam-umbrella</td><td>2 ↗</td></tr>
+            <tr data-bd="row-m-gates-001"><td class="mono">m-gates-001</td><td><span class="badge b-quiet">waiting input</span></td><td>m-gates</td><td>11 ↗</td></tr>
+            <tr data-bd="row-be-push-001"><td class="mono">be-push-001</td><td><span class="badge b-quiet">quiet 7m</span></td><td>be-push</td><td>6 ↗</td></tr>
+            <tr data-bd="row-stanbam-umbrella-001"><td class="mono">stanbam-umbrella-001</td><td><span class="badge b-idle">idle</span></td><td>stanbam-umbrella</td><td class="dim">herdr</td></tr>
+            <tr data-bd="row-bluedoc"><td class="mono">bluedoc</td><td><span class="badge b-idle">idle</span></td><td>AI</td><td class="dim">tty</td></tr>
+            <tr class="off" data-bd="row-be-replay-001"><td class="mono">be-replay-001</td><td><span class="badge b-off">offline 3h</span></td><td>be-replay</td><td>—</td></tr>
+          </tbody>
+        </table>
+        <div class="card" data-bd="detail">
+          <div class="kv">
+            <span>callsign</span><span class="mono">be-audio-001</span>
+            <span>harness</span><span>omp · claude-opus-5</span>
+            <span>directory</span><span>…/.worktrees/be-audio</span>
+            <span>turn</span><span class="acc">working 4m · bash</span>
+            <span>last</span><span>14:41 you → aside “Did the migration land?”</span>
+          </div>
+          <div class="acts">
+            <button class="btn primary" data-bd="go-to-pane">Go to pane 3</button>
+            <button class="btn" data-bd="open-thread">Thread</button>
+            <button class="btn" data-bd="copy-callsign">Copy callsign</button>
+          </div>
+        </div>
+      </div>
+      <div class="dock" data-bd="composer">
+        <input class="field" data-bd="message-field" placeholder="Message be-audio-001 as you (via Tern)…">
+        <div class="dim" style="font-size:11px">Enter sends · arrives as from <span class="mono">you (via Tern)</span>, hop 0 · ⌘↑↓ select</div>
+      </div>
+    </section>
+  </div>
+</main>
