@@ -1,5 +1,6 @@
 // Acceptance suite: real processes, real unix sockets, isolated HOME. Run with `npm test`.
 import type { FileSink } from "bun";
+import { decodeKeys } from "../tui.ts";
 import fs from "node:fs";
 import net from "node:net";
 import os from "node:os";
@@ -7,6 +8,7 @@ import path from "node:path";
 
 const EXT = path.resolve(import.meta.dir, "../index.ts");
 const HOST = path.resolve(import.meta.dir, "host.ts");
+const CLI = path.resolve(import.meta.dir, "../bin/agent-collective.ts");
 const home = fs.mkdtempSync(path.join(os.tmpdir(), "collective-test-"));
 type Ev = { ev: string; [k: string]: unknown };
 type Proc = { p: ReturnType<typeof Bun.spawn>; evs: Ev[]; pid: number };
@@ -20,7 +22,8 @@ const check = (ok: boolean, label: string, extra = "") => {
 async function spawn(name: string, env: Record<string, string> = {}) {
 	// --no-install: otherwise bun tries to auto-install the host packages and hangs.
 	const p = Bun.spawn(["bun", "--no-install", HOST], {
-		env: { ...process.env, OMP_PROFILE: "", PI_PROFILE: "", HOME: home, NAME: name, EXT, ...env },
+		// Clear the terminal identity this suite may inherit (it often runs inside Tern or herdr).
+		env: { ...process.env, OMP_PROFILE: "", PI_PROFILE: "", TERN_PANE: "", HERDR_ENV: "", HERDR_PANE_ID: "", HOME: home, NAME: name, EXT, ...env },
 		stdin: "pipe",
 		stdout: "pipe",
 		stderr: "inherit",
@@ -61,7 +64,7 @@ const whoami = async (n: string) => /You are `([^`]+)`/u.exec(await tool(n, "pee
 const evs = (n: string, kind: string) => procs[n]!.evs.filter(e => e.ev === kind);
 
 // 1. Profile scoping
-await spawn("alpha", { HOST: "omp" });
+await spawn("alpha", { HOST: "omp", TERN_PANE: "4242" });
 await spawn("beta", { HOST: "pi" });
 await spawn("gamma", { HOST: "omp", OMP_PROFILE: "greenely", PI_PROFILE: "greenely" });
 const alphaPeers = await tool("alpha", "peers", {});
@@ -130,6 +133,85 @@ check((await tool("eps", "peer_send", { to: "beta", message: "answer" })).includ
 cmd("eps", { cmd: "end" });
 cmd("alpha", { cmd: "end" });
 await sleep(700);
+
+// 4c. Message log, CLI and the /collective TUI
+const logOf = (session: string) =>
+	fs.existsSync(path.join(home, `.agent-collective/default/sessions/${session}.log.jsonl`))
+		? fs
+				.readFileSync(path.join(home, `.agent-collective/default/sessions/${session}.log.jsonl`), "utf8")
+				.trim()
+				.split("\n")
+				.map(line => JSON.parse(line) as { dir: string; peer: string; outcome?: string; body: string; hop: number; human?: boolean })
+		: [];
+const alphaLog = logOf("sess-alpha");
+check(
+	alphaLog.some(e => e.dir === "out" && e.peer === "beta" && e.outcome === "woken" && e.body === "hello from alpha") &&
+		alphaLog.some(e => e.dir === "in" && e.peer === "beta" && e.body === "reply while you work"),
+	"each session logs what it sent (with outcome) and received",
+);
+check(logOf("sess-beta").some(e => e.dir === "out" && e.peer === "alpha" && e.outcome === "refused"), "a refused send is logged as refused");
+const cli = (...args: string[]) => {
+	const run = Bun.spawnSync(["bun", "--no-install", CLI, ...args], { env: { ...process.env, HOME: home, OMP_PROFILE: "", PI_PROFILE: "" } });
+	return { code: run.exitCode, out: run.stdout.toString() };
+};
+const listed = JSON.parse(cli("list", "--json").out) as { profile: string; sessions: { callsign: string; state: string; where?: { tern?: { pane: string } } }[] };
+check(
+	listed.profile === "default" && listed.sessions.some(s => s.callsign === "alpha" && s.where?.tern?.pane === "4242") && !listed.sessions.some(s => s.callsign === "gamma"),
+	"CLI list: this profile's sessions, with their Tern pane",
+);
+const human = cli("send", "--from", "you (via Tern)", "alpha", "status?");
+await sleep(700);
+const humanIn = String(evs("alpha", "inbound").at(-1)?.text ?? "");
+check(human.code === 0 && humanIn.includes("message from you (via Tern)") && humanIn.includes("not with peer_send"), "CLI send arrives as from the user, with no reply-by-peer_send instruction", human.out.trim());
+check(!String(evs("alpha", "status").at(-1)?.t ?? "").includes("Tern"), "a human sender is not added as a contact");
+check(cli("send", "nobody", "hi").code === 2, "CLI send to an unknown callsign exits 2");
+const thread = JSON.parse(cli("thread", "--session", "sess-alpha", "--peer", "beta", "--json").out) as { messages: unknown[] };
+check(thread.messages.length >= 3, "CLI thread reads one session's exchange with a peer", `${thread.messages.length} messages`);
+cmd("alpha", { cmd: "end" });
+const screen = async (n: string, o: object) => {
+	const id = ++seq;
+	cmd(n, { ...o, id });
+	for (;;) {
+		const hit = procs[n]!.evs.find(e => e.ev === "tui" && e.id === id);
+		if (hit) return (hit.lines as string[]).join("\n");
+		await sleep(20);
+	}
+};
+let view = await screen("alpha", { cmd: "tui-open" });
+check(view.includes("collective default") && view.includes("you are alpha") && /★ beta/u.test(view) && view.includes("eps"), "TUI lists the collective, contacts starred", view.split("\n")[0]);
+view = await screen("alpha", { cmd: "tui-keys", data: "/eps" });
+check(view.includes("eps") && !/★ beta/u.test(view), "typing a filter narrows the list");
+view = await screen("alpha", { cmd: "tui-keys", data: "\x1b" });
+check(/★ beta/u.test(view) && procs.alpha!.evs.every(e => e.ev !== "tui-closed"), "esc while filtering clears the filter and keeps the overlay open");
+view = await screen("alpha", { cmd: "tui-keys", data: "/beta\r\r" });
+check(view.includes("you ⇄ beta") && view.includes("hello from alpha") && view.includes("[woken]"), "enter opens the thread with logged messages and outcomes");
+view = await screen("alpha", { cmd: "tui-keys", data: "sent from the TUI\r", settle: 900 });
+check(view.includes("Delivered to beta"), "the composer sends", view.split("\n").at(-1));
+check(String(evs("beta", "inbound").at(-1)?.text ?? "").includes("sent from the TUI"), "the peer receives the composed message");
+check(logOf("sess-alpha").some(e => e.dir === "out" && e.body === "sent from the TUI" && e.hop === 0), "a message typed in the TUI is hop 0");
+view = await screen("alpha", { cmd: "tui-keys", data: "\x1b" });
+view = await screen("alpha", { cmd: "tui-keys", data: "g" });
+check(view.includes("not in a Tern or herdr pane") || view.includes("could not focus"), "go to pane reports when it cannot focus", view.split("\n").at(-1));
+view = await screen("alpha", { cmd: "tui-keys", data: "r" });
+check(view.includes("Callsign for this session"), "r opens the rename dialog");
+view = await screen("alpha", { cmd: "tui-keys", data: "\x7f\x7f\x7f\x7f\x7fsigma" });
+check(view.includes("alpha → sigma") && view.includes("free"), "the dialog previews the new callsign");
+view = await screen("alpha", { cmd: "tui-keys", data: "\r" });
+check(view.includes("you are sigma") && (await whoami("alpha")) === "sigma", "enter renames this session");
+view = await screen("alpha", { cmd: "tui-keys", data: "r\x15" });
+check((await whoami("alpha")) === "alpha", "ctrl+u clears the override back to the session name");
+view = await screen("alpha", { cmd: "tui-keys", data: "\x1b" });
+check(procs.alpha!.evs.every(e => e.ev !== "tui-closed"), "esc with a filter set clears it first");
+cmd("alpha", { cmd: "tui-keys", data: "\x1b", id: ++seq });
+await sleep(200);
+check(procs.alpha!.evs.some(e => e.ev === "tui-closed"), "the next esc closes the overlay");
+
+// 4d. Key decoding: legacy and kitty encodings
+const keys = (data: string) => decodeKeys(data).map(k => `${k.ctrl ? "ctrl+" : ""}${k.alt ? "alt+" : ""}${k.shift ? "shift+" : ""}${k.name}${k.text && k.text.length > 1 ? `=${k.text}` : ""}`);
+check(keys("\x1b[A\x1bOB").join(" ") === "up down", "legacy arrows", keys("\x1b[A\x1bOB").join(" "));
+check(keys("\x1b[13;2u\x1b[117;5u\x1b[27u").join(" ") === "shift+enter ctrl+u escape", "kitty enter/ctrl/escape", keys("\x1b[13;2u\x1b[117;5u\x1b[27u").join(" "));
+check(keys("\x1b[97;1:3u").length === 0 && keys("\x1b[1;1:3A").length === 0, "kitty key releases are ignored");
+check(keys("\x1b[200~two\nlines\x1b[201~").join(" ") === "text=two\nlines", "bracketed paste arrives as one text press");
 
 // 5. Socket loss: SIGSTOP longer than the old 6 s stale window, then resume
 const sock = path.join(home, `.agent-collective/default/${procs.beta!.pid}.sock`);

@@ -1,6 +1,6 @@
 {
   "name": "agent-collective",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Peer messaging between omp and pi sessions on one machine, scoped per omp profile: sessions find each other on demand by callsign and prompt each other with peers / peer_send.",
   "type": "module",
   "main": "./index.ts",
@@ -11,10 +11,13 @@
     "index.ts",
     "README.md",
     "CHANGELOG.md",
-    "LICENSE"
+    "LICENSE",
+    "store.ts",
+    "tui.ts",
+    "bin"
   ],
   "scripts": {
-    "typecheck": "tsc --noEmit --strict --skipLibCheck --module esnext --target es2022 --lib es2024 --moduleResolution bundler --types node index.ts",
+    "typecheck": "tsc --noEmit --strict --skipLibCheck --module esnext --target es2022 --lib es2024 --moduleResolution bundler --allowImportingTsExtensions --types node index.ts bin/agent-collective.ts",
     "package:dry-run": "npm pack --dry-run",
     "test": "bun --no-install test/acceptance.ts"
   },
@@ -73,5 +76,8 @@
   "devDependencies": {
     "@types/node": "^22",
     "typescript": "5.7.3"
+  },
+  "bin": {
+    "agent-collective": "bin/agent-collective.ts"
   }
 }

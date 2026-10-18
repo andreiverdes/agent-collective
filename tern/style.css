@@ -1,0 +1,94 @@
+/* The Collective block (plugin.agent-collective.collective): its sessions table, row selection,
+   offline rows dimmed, and the detail card's buttons. */
+
+[data-surface='plugin.agent-collective.collective'] .ac-sessions {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+[data-surface='plugin.agent-collective.collective'] .ac-sessions th {
+  text-align: left;
+  font-family: var(--sans);
+  font-weight: 500;
+  color: var(--t3);
+  padding: 2px 8px 4px;
+  border-bottom: 1px solid var(--l2);
+}
+
+[data-surface='plugin.agent-collective.collective'] .ac-sessions td {
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--l1);
+  color: var(--t1);
+  white-space: nowrap;
+}
+
+[data-surface='plugin.agent-collective.collective'] .ac-sessions td.ac-dir {
+  width: 100%;
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--t2);
+}
+
+[data-surface='plugin.agent-collective.collective'] .ac-sessions .ac-pane {
+  text-align: right;
+}
+
+[data-surface='plugin.agent-collective.collective'] .ac-sessions .ac-dim {
+  color: var(--t3);
+}
+
+[data-surface='plugin.agent-collective.collective'] .ac-sessions tbody tr {
+  cursor: default;
+}
+
+[data-surface='plugin.agent-collective.collective'] .ac-sessions tbody tr:hover td {
+  background: var(--well);
+}
+
+[data-surface='plugin.agent-collective.collective'] .ac-sessions tr.ac-sel td {
+  background: var(--well);
+}
+
+[data-surface='plugin.agent-collective.collective'] .ac-sessions tr.ac-sel td.ac-callsign {
+  box-shadow: inset 2px 0 0 var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+[data-surface='plugin.agent-collective.collective'] .ac-sessions tr.ac-off td {
+  opacity: 0.5;
+}
+
+[data-surface='plugin.agent-collective.collective'] .ac-btn {
+  font: inherit;
+  font-family: var(--sans);
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--l2);
+  background: var(--raise);
+  color: var(--t1);
+  cursor: default;
+}
+
+[data-surface='plugin.agent-collective.collective'] .ac-btn:hover {
+  border-color: var(--l3);
+}
+
+[data-surface='plugin.agent-collective.collective'] .ac-btn.ac-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--page);
+}
+
+[data-surface='plugin.agent-collective.collective'] .ac-btn.ac-disabled {
+  opacity: 0.45;
+}
+
+/* The thread opens in the layer region, over the sessions: give it the page's own background. */
+.sf-layer[data-surface='plugin.agent-collective.collective'] {
+  background: var(--page);
+}

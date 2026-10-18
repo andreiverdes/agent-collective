@@ -6,7 +6,7 @@
     "org": "agent-collective",
     "kind": "Design",
     "type": "design",
-    "rev": "2",
+    "rev": "3",
     "date": "2026-10-18"
   },
   "state": [
@@ -72,7 +72,8 @@
                   "label": "HorizonUI"
                 }
               ],
-              "detail": "The real UI is drawn by omp's TUI (`Component.render(width) → string[]`) and by Tern's TSP nodes (`tern.ui.table`, `list`, `badge`), not by HTML. The mock only needs a character grid and the theme's colours; a component framework would mislead about what can be drawn."
+              "detail": "The real UI is drawn by omp's TUI (`Component.render(width) → string[]`) and by Tern's TSP nodes (`tern.ui.table`, `list`, `badge`), not by HTML. The mock only needs a character grid and the theme's colours; a component framework would mislead about what can be drawn.",
+              "choice": "plain"
             },
             {
               "id": "theme",
@@ -92,7 +93,8 @@
                   "id": "light",
                   "label": "Light terminal"
                 }
-              ]
+              ],
+              "choice": "omp-dark"
             },
             {
               "id": "omp-layout",
@@ -109,7 +111,8 @@
                   "label": "Bottom panel (12 rows)"
                 }
               ],
-              "detail": "Full-screen: the **Sessions** and **Thread** screens. Bottom panel: the **Sessions, bottom panel** variant; the transcript stays visible above, 8 sessions fit before scrolling, and the thread opens full-screen anyway."
+              "detail": "Full-screen: the **Sessions** and **Thread** screens. Bottom panel: the **Sessions, bottom panel** variant; the transcript stays visible above, 8 sessions fit before scrolling, and the thread opens full-screen anyway.",
+              "choice": "full"
             },
             {
               "id": "message-log",
@@ -126,7 +129,8 @@
                   "label": "No log"
                 }
               ],
-              "detail": "**Keep a log:** append one JSON line per sent or received message to `sessions/<session-id>.log.jsonl` (time, peer, direction, hop, outcome, body), capped at the last 500 lines. **No log:** the Thread screen can show only messages that arrived since the TUI opened; outcomes of earlier sends are lost."
+              "detail": "**Keep a log:** append one JSON line per sent or received message to `sessions/<session-id>.log.jsonl` (time, peer, direction, hop, outcome, body), capped at the last 500 lines. **No log:** the Thread screen can show only messages that arrived since the TUI opened; outcomes of earlier sends are lost.",
+              "choice": "log"
             },
             {
               "id": "offline-rows",
@@ -146,7 +150,8 @@
                   "id": "hide",
                   "label": "Never show"
                 }
-              ]
+              ],
+              "choice": "show"
             },
             {
               "id": "tern-send",
@@ -163,7 +168,8 @@
                   "label": "Go to pane only"
                 }
               ],
-              "detail": "Tern's Luau API has `tern.fs` (read records) and `tern.process.run`, but no socket client. **CLI:** ship `bin/agent-collective send <callsign> <message>` in the package; the block runs it, and the peer sees the message as from `you (via Tern)` at hop 0. **Go to pane only:** the block lists sessions and jumps to their pane; you type there."
+              "detail": "Tern's Luau API has `tern.fs` (read records) and `tern.process.run`, but no socket client. **CLI:** ship `bin/agent-collective send <callsign> <message>` in the package; the block runs it, and the peer sees the message as from `you (via Tern)` at hop 0. **Go to pane only:** the block lists sessions and jumps to their pane; you type there.",
+              "choice": "cli"
             }
           ]
         }
@@ -253,19 +259,25 @@
               "title": "omp · /collective: sessions, bottom panel",
               "device": "desktop",
               "fidelity": "hifi",
-              "variantOf": "omp-sessions"
+              "variantOf": "omp-sessions",
+              "x": 0,
+              "y": 880
             },
             {
               "id": "omp-thread",
               "title": "omp · /collective: thread with be-audio-001",
               "device": "desktop",
-              "fidelity": "hifi"
+              "fidelity": "hifi",
+              "x": 1480,
+              "y": 0
             },
             {
               "id": "omp-rename",
               "title": "omp · /collective: rename this session",
               "device": "desktop",
-              "fidelity": "hifi"
+              "fidelity": "hifi",
+              "x": 1480,
+              "y": 880
             },
             {
               "id": "tern-block",
@@ -273,7 +285,7 @@
               "device": "desktop",
               "fidelity": "hifi",
               "x": 0,
-              "y": 1000
+              "y": 1760
             }
           ]
         }
@@ -281,6 +293,9 @@
     }
   ],
   "changes": [
-    "Screens switched to hi-fi: wireframe fidelity greyed the theme colours, so omp dark / Tern / Light had no effect."
+    "Board layout from your draft; picks recorded."
+  ],
+  "resolves": [
+    "cmvduen9nl6qo"
   ]
 }

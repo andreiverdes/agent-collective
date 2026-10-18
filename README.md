@@ -53,12 +53,50 @@ records and two sockets.
 | ----------------------------- | -------------------------------------------------------------------------- |
 | `/rename 007`                 | Renames the session; the collective adopts `007` as the callsign           |
 | `/callsign 007`               | Sets the callsign only, leaving the session title alone                    |
-| `/collective`                 | Lists live sessions in this collective; contacts are starred               |
+| `/collective`                 | Opens the collective TUI (below); a plain list on hosts without a TUI      |
 | `peers` (tool)                | Same list for the agent, optional `filter`; contacts first                 |
 | `peer_send` (tool)            | Prompt a session by callsign (`@name` accepted); the reply arrives as a peer message |
 
 An idle peer wakes into a turn. A busy omp peer receives the message as an aside, which does not
 interrupt its running tool batch; a busy pi peer is steered (pi has no aside).
+
+### The /collective TUI
+
+A full-screen overlay over the transcript (omp and pi). It reads the collective from disk every
+2 s; opening it costs no model turn.
+
+| Key | Sessions list | Thread with one peer |
+| --- | --- | --- |
+| `↑↓` / `j k`, PgUp/PgDn | select | |
+| `enter` | open the thread | send the message |
+| `shift+enter` / `alt+enter` | | new line |
+| `/` | filter by callsign or directory | |
+| `c` | contacts only | |
+| `g` / `ctrl+g` | focus the session's Tern or herdr pane | focus its pane |
+| `y` | copy the callsign | |
+| `r` | rename this session (`ctrl+u` in the dialog clears a `/callsign` override) | |
+| `esc` | clear the filter, then close | back to the list (the draft is kept) |
+
+Contacts come first, then the other running sessions, then offline callsigns (dimmed). A message
+typed in the TUI goes out as this session at hop 0: you typed it, so it starts a new chain.
+
+### CLI
+
+```sh
+agent-collective list   [--profile P] [--json]
+agent-collective send   [--profile P] [--from LABEL] <callsign> <message…>
+agent-collective thread [--profile P] --session <id> [--peer <callsign>] [--json]
+```
+
+Runs under node ≥ 22.18 or bun. `send` delivers as a person, not a session: the peer is told the
+message came from the user and to answer in its own pane. Exit codes: 0 delivered, 2 unknown or
+offline callsign, 1 any other failure.
+
+### Tern
+
+[`tern/`](tern/README.md) is a Tern plugin: a **Collective** pane beside your agent panes, with the
+same list, a thread view, a composer that sends through the CLI, and **Go to pane**. Install it with
+`tern plugin install github.com/andreiverdes/agent-collective/tern`.
 
 ### Callsigns
 
@@ -103,7 +141,10 @@ that callsign immediately; it is not reserved.
   it binds a fresh temporary path and renames it into place. A sender that hits a missing or
   refusing socket on a live peer waits up to 7 s for it to re-appear and retries once.
 - Per-session state (callsign, `/callsign` override, contacts) lives in
-  `~/.agent-collective/<profile>/sessions/<session-id>.json`.
+  `~/.agent-collective/<profile>/sessions/<session-id>.json`, and the session's last 500 messages
+  (time, peer, direction, hop, outcome, text) in `sessions/<session-id>.log.jsonl`.
+- A record carries where the session's terminal is: `TERN_PANE`, herdr's `HERDR_PANE_ID`, or the
+  tty. That is all *go to pane* needs.
 
 ## Limits
 

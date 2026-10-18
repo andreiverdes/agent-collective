@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.5.0
+
+- **`/collective` TUI** (omp and pi): a full-screen overlay with every session in the collective
+  (contacts, others, offline callsigns dimmed), a detail panel, filter, contacts-only, copy
+  callsign, go to the session's Tern or herdr pane, a thread view with a composer, and a rename
+  dialog. Design: `docs/design/collective-tui.bluedoc.json` (approved rev 2, layout from rev 3).
+  On hosts without custom UI, `/collective` still prints a list.
+- **Message log.** Each session keeps its last 500 sent and received messages, with hop and outcome
+  (woken, aside, steered, coalesced, refused, offline, failed), in `sessions/<id>.log.jsonl`.
+- **`agent-collective` CLI** (`list`, `send`, `thread`). `send` delivers as the user, not as a
+  session: the peer is told to answer in its own pane, starts no relay chain and adds no contact.
+- **Tern plugin** in `tern/`: a native Collective block with the same list, thread, composer (via
+  the CLI) and Go to pane.
+- Records carry where the session's terminal is (`TERN_PANE`, herdr pane, tty) and when the running
+  turn started; claims carry the directory and harness, so offline callsigns show both.
+- A busy pi peer's receipt now says `steered` instead of `injected`.
+- Shared code moved into `store.ts` (records, claims, listing, delivery, log) used by the
+  extension, the TUI (`tui.ts`) and the CLI.
+
 ## 0.4.1
 
 - **Memorable callsigns.** Unnamed sessions are `<dir>-001`, `<dir>-002`, … instead of

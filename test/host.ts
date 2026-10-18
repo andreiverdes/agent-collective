@@ -10,9 +10,23 @@ let idle = true;
 const out = (o: unknown) => process.stdout.write(`${JSON.stringify(o)}\n`);
 const omp = process.env.HOST === "omp";
 const sessionName = process.env.SESSION_NAME ?? process.env.NAME;
+type View = { render(width: number): string[]; handleInput?(data: string): void; dispose?(): void };
+let view: View | undefined;
+// A plain theme, so rendered lines can be asserted as text.
+const theme = { fg: (_c: string, t: string) => t, bg: (_c: string, t: string) => t, bold: (t: string) => t };
+const tui = { requestRender: () => undefined, terminal: { rows: Number(process.env.ROWS ?? 30), columns: 140 } };
+const custom = async (factory: (tui: unknown, theme: unknown, kb: unknown, done: (r: unknown) => void) => View | Promise<View>) => {
+	const { promise, resolve } = Promise.withResolvers<unknown>();
+	view = await factory(tui, theme, {}, result => {
+		view?.dispose?.();
+		view = undefined;
+		resolve(result);
+	});
+	return promise;
+};
 const ctx = {
 	cwd: process.env.CWD ?? `/tmp/${process.env.NAME}`,
-	ui: { notify: (m: string) => out({ ev: "notify", m }), setStatus: (k: string, t?: string) => out({ ev: "status", t }) },
+	ui: { notify: (m: string) => out({ ev: "notify", m }), setStatus: (k: string, t?: string) => out({ ev: "status", t }), custom },
 	isIdle: () => idle,
 	sessionManager: { getSessionId: () => process.env.SESSION_ID ?? `sess-${process.env.NAME}`, getHeader: () => ({ titleSource: "user" }) },
 	...(omp ? { setInterval: (f: () => void, ms: number) => setInterval(f, ms), clearTimer: (t: ReturnType<typeof setInterval>) => clearInterval(t) } : {}),
@@ -51,6 +65,16 @@ for await (const chunk of process.stdin) {
 		} else if (cmd.cmd === "exit") {
 			await fire("session_shutdown", {});
 			process.exit(0);
+		} else if (cmd.cmd === "tui-open") {
+			// The command resolves only when the overlay closes, so it is not awaited here.
+			void commands.get("collective")!("", ctx).then(() => out({ ev: "tui-closed" }));
+			while (!view) await new Promise(r => setTimeout(r, 10));
+			out({ ev: "tui", id: cmd.id, lines: view.render(cmd.width ?? 140) });
+		} else if (cmd.cmd === "tui-keys") {
+			view?.handleInput?.(cmd.data);
+			// Sends and focus run async; give them a moment before rendering.
+			await new Promise(r => setTimeout(r, cmd.settle ?? 50));
+			out({ ev: "tui", id: cmd.id, lines: view ? view.render(cmd.width ?? 140) : [] });
 		}
 	}
 }

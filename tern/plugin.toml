@@ -1,0 +1,13 @@
+schema = 1
+id = "agent-collective"
+name = "Agent collective"
+version = "0.1.0"
+description = "Lists the sessions of an agent-collective profile: their state, directory and Tern pane. Message one, read its thread or jump to its pane."
+host = "host.luau"
+window = "window.luau"
+styles = ["style.css"]
+
+[[blocks]]
+id = "collective"
+title = "Collective"
+palette = true

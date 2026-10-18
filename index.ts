@@ -23,31 +23,40 @@
  *   - The host rewrites its own package specifiers with an `onResolve` hook scoped to the
  *     extension's load pass, so only *literal* specifiers resolve in dynamic imports.
  */
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import net from "node:net";
-import os from "node:os";
 import path from "node:path";
+import {
+	CHECK_MS,
+	CLAIM_WRITE_GRACE_MS,
+	RECORD_VERSION,
+	RESERVE_MS,
+	appendLog,
+	claimLive,
+	collectiveDir,
+	deliver,
+	detectWhere,
+	listCollective,
+	pidAlive,
+	processStart,
+	readClaim,
+	readLog,
+	readRecords,
+	resolveScope,
+	resolveTarget,
+	unreachableText,
+	type CollectiveEntry,
+	type LogEntry,
+	type NameClaim,
+	type PeerFrame,
+	type PeerRecord,
+	type Where,
+} from "./store.ts";
+import { openCollectiveTui, type CollectiveTuiApi, type CustomUi } from "./tui.ts";
 
-/** Presence record layout. 0.3.x wrote v1 records to the root directory; they are ignored. */
-const RECORD_VERSION = 2;
-/** How often an instance checks that its socket is still reachable at its path. */
-const CHECK_MS = 5_000;
 /** Record refresh cadence, in checks (~1 min). Only used to show how recent a record is. */
 const REFRESH_CHECKS = 12;
-/** A record not refreshed this long is shown as possibly unreachable; it is never deleted. */
-const QUIET_MS = 5 * 60_000;
-/** How long a sender waits for a live peer to re-bind a lost socket before giving up. */
-const HEAL_WAIT_MS = CHECK_MS + 2_000;
-const PEER_TIMEOUT_MS = 8_000;
 const MAX_CALLSIGN = 24;
-/** An unreadable claim younger than this is mid-write, not corrupt. */
-const CLAIM_WRITE_GRACE_MS = 10_000;
-/**
- * How long a callsign stays reserved for its session after that session last ran. Within
- * it, nobody else is given the name and a resume takes it back; after it, the name is free.
- */
-const RESERVE_MS = 7 * 24 * 60 * 60_000;
 const MAX_STATUS_NAME = 12;
 const MAX_STATUS_WIDTH = 32;
 /**
@@ -59,64 +68,13 @@ const MAX_HOPS = 4;
 /** Burst window: messages from one peer arriving inside it become a single wake. */
 const COALESCE_MS = 400;
 
-/**
- * Root of every collective. Deliberately not derived from any agent-dir env var: omp and pi
- * must land in the same place when they share a profile.
- */
-const COLLECTIVE_ROOT = path.join(os.homedir(), ".agent-collective");
-
-/**
- * The collective this process belongs to. omp exports the active profile into both env
- * vars when started with `--profile`; pi has no profiles, so it is always `default`.
- */
-function resolveScope(): string {
-	const raw = (process.env.OMP_PROFILE ?? process.env.PI_PROFILE ?? "").trim();
-	return /^[a-z0-9][a-z0-9._-]{0,63}$/u.test(raw) && !raw.endsWith(".") ? raw : "default";
-}
-
-interface PeerRecord {
-	v: number;
-	pid: number;
-	callsign: string;
-	cwd: string;
-	project: string;
-	via: "omp" | "pi";
-	sessionId?: string;
-	model?: string;
-	socket: string;
-	startedAt: number;
-	/** Last time the owner rewrote the record; display only. */
-	beatAt: number;
-	busy: boolean;
-}
-
-/**
- * Frame exchanged over a peer's unix socket, one JSON object per line.
- *
- * `hop` is the message's distance from a human prompt: 0 for a message an agent sends on
- * its own initiative, otherwise one more than the message it answers. It exists because
- * mutual wake is a *behavioural* loop, not a transport loop — A wakes B, B's resulting turn
- * wakes A, and every individual delivery is a legitimate single hop, so no transport-level
- * guard ever trips. Absent is treated as 0.
- */
-type PeerFrame =
-	| { t: "msg"; from: string; body: string; replyTo?: string; hop?: number }
-	| { t: "ping"; from: string };
-
-interface PeerReply {
-	ok: boolean;
-	outcome?: string;
-	callsign?: string;
-	error?: string;
-	/** Set locally when the connection itself failed (`ENOENT`, `ECONNREFUSED`, ...). */
-	transport?: string;
-}
-
 interface CollectiveContext {
 	cwd: string;
 	ui: {
 		notify(message: string, type?: "info" | "warning" | "error"): void;
 		setStatus(key: string, text: string | undefined): void;
+		/** Both hosts: a focused custom component (the /collective TUI). */
+		custom?: CustomUi;
 	};
 	isIdle(): boolean;
 	sessionManager: {
@@ -181,57 +139,6 @@ function ensureNode(pi: CollectivePi, ctx: CollectiveContext): CollectiveNode | 
 	}
 }
 
-/** True while `pid` exists. EPERM means it exists under another user, which still counts. */
-function pidAlive(pid: number): boolean {
-	try {
-		process.kill(pid, 0);
-		return true;
-	} catch (error) {
-		return (error as NodeJS.ErrnoException).code === "EPERM";
-	}
-}
-
-/**
- * The OS start time of `pid`. With the pid it identifies one process, so a claim left by a
- * crashed session is not mistaken for live when its pid has been reused. Undefined when `ps`
- * is unavailable; callers then fall back to the pid alone.
- */
-function processStart(pid: number): string | undefined {
-	try {
-		const out = execFileSync("ps", ["-o", "lstart=", "-p", String(pid)], {
-			encoding: "utf8",
-			env: { ...process.env, LC_ALL: "C" },
-			stdio: ["ignore", "pipe", "ignore"],
-		}).trim();
-		return out.length > 0 ? out : undefined;
-	} catch {
-		return undefined;
-	}
-}
-
-/** Contents of `names/<callsign>`: which process holds that callsign. */
-interface NameClaim {
-	pid: number;
-	start?: string;
-	sessionId?: string;
-}
-
-/** A claim file's owner, `"missing"`, or `"unreadable"` (mid-write, or left corrupt by a crash). */
-function readClaim(file: string): NameClaim | "missing" | "unreadable" {
-	let text: string;
-	try {
-		text = fs.readFileSync(file, "utf8");
-	} catch {
-		return "missing";
-	}
-	try {
-		const claim = JSON.parse(text) as NameClaim;
-		return typeof claim.pid === "number" ? claim : "unreadable";
-	} catch {
-		return "unreadable";
-	}
-}
-
 /**
  * Prefix of automatic callsigns: `<dir>-001`, `<dir>-002`, … Every session in a collective
  * shares its profile, so the working directory is what tells sessions apart at a glance.
@@ -256,7 +163,7 @@ class CollectiveNode {
 	readonly #pi: CollectivePi;
 	readonly #ctx: CollectiveContext;
 	readonly scope = resolveScope();
-	readonly #dir = path.join(COLLECTIVE_ROOT, this.scope);
+	readonly #dir = collectiveDir(this.scope);
 	readonly #socketPath = path.join(this.#dir, `${process.pid}.sock`);
 	readonly #recordPath = path.join(this.#dir, `${process.pid}.json`);
 	readonly #startedAt = Date.now();
@@ -291,6 +198,8 @@ class CollectiveNode {
 	/** What the last allocation asked for ("" = automatic), so a `/rename` is noticed. */
 	#allocatedFor: string | undefined;
 	#busy = false;
+	#busySince: number | undefined;
+	readonly #where: Where = detectWhere();
 	#server: net.Server | undefined;
 	/** Inode of the socket file this process bound; anything else at the path is not ours. */
 	#socketIno: number | undefined;
@@ -319,6 +228,39 @@ class CollectiveNode {
 
 	get contacts(): ReadonlySet<string> {
 		return this.#contacts;
+	}
+
+	get via(): "omp" | "pi" {
+		return this.#via;
+	}
+
+	get override(): string | undefined {
+		return this.#override;
+	}
+
+	/** The callsign a rename to `name` would get, without claiming anything. */
+	previewName(name: string): { name: string; held: boolean } {
+		const owner = readClaim(path.join(this.#namesDir, name));
+		const held = typeof owner === "object" && owner.pid !== process.pid && claimLive(owner, this.#processStart !== undefined);
+		return { name, held };
+	}
+
+	/** Everyone else in the collective, contacts first; read from disk on every call. */
+	entries(): (CollectiveEntry & { contact: boolean })[] {
+		return listCollective(this.#dir)
+			.map(entry => ({ ...entry, contact: this.#contacts.has(entry.callsign) }))
+			.sort((a, b) =>
+				a.contact !== b.contact
+					? a.contact ? -1 : 1
+					: (a.state === "offline") !== (b.state === "offline")
+						? a.state === "offline" ? 1 : -1
+						: a.callsign.localeCompare(b.callsign),
+			);
+	}
+
+	/** What this session and `peer` said, oldest first; all messages when `peer` is omitted. */
+	thread(peer?: string): LogEntry[] {
+		return this.#sessionId ? readLog(this.#dir, this.#sessionId, peer) : [];
 	}
 
 	start(): void {
@@ -372,6 +314,7 @@ class CollectiveNode {
 	setBusy(busy: boolean): void {
 		if (this.#busy === busy) return;
 		this.#busy = busy;
+		this.#busySince = busy ? Date.now() : undefined;
 		this.#writeRecord();
 	}
 
@@ -462,6 +405,8 @@ class CollectiveNode {
 			startedAt: this.#startedAt,
 			beatAt: Date.now(),
 			busy: this.#busy,
+			busySince: this.#busySince,
+			where: this.#where,
 		};
 		fs.mkdirSync(this.#dir, { recursive: true, mode: 0o700 });
 		const temporary = `${this.#recordPath}.tmp`;
@@ -574,7 +519,7 @@ class CollectiveNode {
 		}
 		if (owner === "unreadable") return age < CLAIM_WRITE_GRACE_MS;
 		if (owner.pid === process.pid) return false;
-		if (exact ? this.#claimLive(owner) : pidAlive(owner.pid)) return true;
+		if (exact ? claimLive(owner, this.#processStart !== undefined) : pidAlive(owner.pid)) return true;
 		return owner.sessionId !== undefined && owner.sessionId !== this.#sessionId && age < RESERVE_MS;
 	}
 
@@ -587,7 +532,13 @@ class CollectiveNode {
 	 */
 	#claim(name: string): boolean {
 		const file = path.join(this.#namesDir, name);
-		const mine: NameClaim = { pid: process.pid, start: this.#processStart, sessionId: this.#sessionId };
+		const mine: NameClaim = {
+			pid: process.pid,
+			start: this.#processStart,
+			sessionId: this.#sessionId,
+			cwd: this.#ctx.cwd,
+			via: this.#via,
+		};
 		for (let attempt = 0; attempt < 4; attempt += 1) {
 			try {
 				fs.writeFileSync(file, JSON.stringify(mine), { flag: "wx", mode: 0o600 });
@@ -619,13 +570,6 @@ class CollectiveNode {
 		return false;
 	}
 
-	/** A claim is live while its pid exists and, when both sides know it, its start time matches. */
-	#claimLive(owner: NameClaim): boolean {
-		if (!pidAlive(owner.pid)) return false;
-		if (owner.start === undefined || this.#processStart === undefined) return true;
-		return processStart(owner.pid) === owner.start;
-	}
-
 	/** Keep the claim's mtime near "last ran", which is what a reservation expires from. */
 	#touchClaim(): void {
 		if (!this.#holds(this.#callsign)) return;
@@ -642,158 +586,48 @@ class CollectiveNode {
 		if (name !== "" && this.#holds(name)) fs.rmSync(path.join(this.#namesDir, name), { force: true });
 	}
 
-	/**
-	 * Every record in this collective whose process still exists. A dead process's record
-	 * and socket are removed; a live process's files are NEVER touched, however stale its
-	 * record looks — a laptop sleep or a stalled event loop is not death, and unlinking a
-	 * live listener's socket strands it unreachable for good.
-	 */
-	#readRecords(): PeerRecord[] {
-		let names: string[];
-		try {
-			names = fs.readdirSync(this.#dir);
-		} catch {
-			return [];
-		}
-		const records: PeerRecord[] = [];
-		for (const name of names) {
-			if (!/^\d+\.json$/u.test(name)) continue;
-			const file = path.join(this.#dir, name);
-			let record: PeerRecord;
-			try {
-				record = JSON.parse(fs.readFileSync(file, "utf8")) as PeerRecord;
-			} catch {
-				// Mid-rename or truncated; the owner rewrites it within a minute.
-				continue;
-			}
-			if (record.v !== RECORD_VERSION || typeof record.pid !== "number" || typeof record.callsign !== "string") continue;
-			if (record.pid !== process.pid && !pidAlive(record.pid)) {
-				fs.rmSync(file, { force: true });
-				if (record.socket.startsWith(this.#dir)) fs.rmSync(record.socket, { force: true });
-				continue;
-			}
-			records.push(record);
-		}
-		return records;
+	/** Running peers only, contacts first: what the `peers` tool and `/collective` text list. */
+	listPeers(): (CollectiveEntry & { contact: boolean; record: PeerRecord })[] {
+		return this.entries().filter((entry): entry is CollectiveEntry & { contact: boolean; record: PeerRecord } => entry.record !== undefined);
 	}
 
-	/** Live peers, contacts first. Read on demand; nothing is cached between calls. */
-	listPeers(): { record: PeerRecord; contact: boolean; quiet: boolean }[] {
-		const now = Date.now();
-		return this.#readRecords()
-			.filter(record => record.pid !== process.pid)
-			.map(record => ({
-				record,
-				contact: this.#contacts.has(record.callsign),
-				quiet: now - record.beatAt > QUIET_MS,
-			}))
-			.sort((a, b) =>
-				a.contact !== b.contact ? (a.contact ? -1 : 1) : a.record.callsign.localeCompare(b.record.callsign),
-			);
+	/**
+	 * Send `body` to `callsign` and log the outcome. `fromUser` marks a message the person at
+	 * this terminal typed (the TUI composer): it starts a fresh chain at hop 0, whatever turn
+	 * this session is in.
+	 */
+	async send(
+		callsign: string,
+		body: string,
+		options: { replyTo?: string; fromUser?: boolean } = {},
+	): Promise<{ ok: boolean; outcome: string; text: string }> {
+		const target = resolveTarget(this.#dir, callsign);
+		const hop = options.fromUser ? 0 : this.#outboundHop(callsign);
+		if (target.kind !== "live") {
+			if (target.kind === "offline") this.#log({ at: Date.now(), dir: "out", peer: callsign, hop, outcome: "offline", body });
+			return { ok: false, outcome: target.kind, text: unreachableText(callsign, this.scope, target) };
+		}
+		const frame: PeerFrame = { t: "msg", from: this.#callsign, body, replyTo: options.replyTo, hop };
+		const reply = await deliver(target.record, frame);
+		const outcome = reply.ok ? (reply.outcome ?? "injected") : reply.error?.startsWith("Refused") ? "refused" : "failed";
+		this.#log({ at: Date.now(), dir: "out", peer: callsign, hop, outcome, body });
+		if (!reply.ok) return { ok: false, outcome, text: `Delivery to ${callsign} failed: ${reply.error ?? "unknown error"}` };
+		this.#addContact(callsign);
+		return { ok: true, outcome, text: `Delivered to ${callsign} (${outcome}). Its reply will arrive as a peer message.` };
 	}
 
 	async dispatch(callsign: string, body: string, replyTo?: string): Promise<string> {
-		const peers = this.#readRecords().filter(record => record.pid !== process.pid);
-		// The claim file is the single source of truth for who holds a callsign; records only
-		// carry a copy. Records are matched by name alone for peers on 0.4.0, which wrote no claims.
-		const owner = readClaim(path.join(this.#namesDir, callsign));
-		const record =
-			typeof owner === "object"
-				? peers.find(peer => peer.pid === owner.pid)
-				: owner === "missing"
-					? peers.find(peer => peer.callsign === callsign)
-					: undefined;
-		if (!record && typeof owner === "object" && owner.sessionId !== undefined) {
-			let lastRan: number | undefined;
-			try {
-				lastRan = fs.statSync(path.join(this.#namesDir, callsign)).mtimeMs;
-			} catch {
-				lastRan = undefined;
-			}
-			if (lastRan !== undefined && Date.now() - lastRan < RESERVE_MS) {
-				const minutes = Math.max(1, Math.round((Date.now() - lastRan) / 60_000));
-				const ago = minutes < 60 ? `${minutes} min` : minutes < 48 * 60 ? `${Math.round(minutes / 60)} h` : `${Math.round(minutes / 1440)} days`;
-				return `${callsign} is offline (its session last ran ${ago} ago). The callsign stays reserved for that session until it resumes or for ${RESERVE_MS / 86_400_000} days, so nothing else received this message.`;
-			}
-		}
-		if (!record) {
-			const needle = callsign.toLowerCase();
-			const close = peers.map(peer => peer.callsign).filter(name => name.toLowerCase().includes(needle));
-			return `Unknown peer "${callsign}" in collective "${this.scope}".${close.length > 0 ? ` Did you mean: ${close.join(", ")}?` : " Use the peers tool to list live sessions."}`;
-		}
-		const reply = await this.#send(record, {
-			t: "msg",
-			from: this.#callsign,
-			body,
-			replyTo,
-			hop: this.#outboundHop(callsign),
-		});
-		if (!reply.ok) return `Delivery to ${callsign} failed: ${reply.error ?? "unknown error"}`;
-		this.#addContact(callsign);
-		return `Delivered to ${callsign} (${reply.outcome ?? "injected"}). Its reply will arrive as a peer message.`;
+		return (await this.send(callsign, body, { replyTo })).text;
 	}
 
-	/**
-	 * Deliver one frame. A live peer whose socket is missing or refusing is re-binding (or
-	 * will be within one check period), so wait for its socket to come back and retry once
-	 * rather than reporting a dead peer.
-	 */
-	async #send(record: PeerRecord, frame: PeerFrame): Promise<PeerReply> {
-		const first = await this.#request(record.socket, frame);
-		if (first.transport !== "ENOENT" && first.transport !== "ECONNREFUSED") return first;
-		if (!pidAlive(record.pid)) return { ok: false, error: `${record.callsign} has exited` };
-		const deadline = Date.now() + HEAL_WAIT_MS;
-		let before: number | undefined;
+	/** Append to this session's message log; a session without an id keeps none. */
+	#log(entry: LogEntry): void {
+		if (!this.#sessionId) return;
 		try {
-			before = fs.statSync(record.socket).ino;
-		} catch {
-			before = undefined;
+			appendLog(this.#dir, this.#sessionId, entry);
+		} catch (error) {
+			this.#pi.logger?.warn(`collective: could not write message log: ${String(error)}`);
 		}
-		while (Date.now() < deadline) {
-			await new Promise(resolve => setTimeout(resolve, 250));
-			let now: number | undefined;
-			try {
-				now = fs.statSync(record.socket).ino;
-			} catch {
-				now = undefined;
-			}
-			if (now !== undefined && now !== before) return this.#request(record.socket, frame);
-		}
-		return {
-			ok: false,
-			error: `${record.callsign} is running but its socket did not come back within ${HEAL_WAIT_MS / 1000} s (it may be suspended, or on agent-collective older than 0.4)`,
-		};
-	}
-
-	/** One request/response round trip over a peer's socket. */
-	#request(socketPath: string, frame: PeerFrame): Promise<PeerReply> {
-		const { promise, resolve } = Promise.withResolvers<PeerReply>();
-		let settled = false;
-		const socket = net.createConnection({ path: socketPath });
-		const finish = (value: PeerReply): void => {
-			if (settled) return;
-			settled = true;
-			socket.destroy();
-			resolve(value);
-		};
-		socket.setTimeout(PEER_TIMEOUT_MS, () => finish({ ok: false, error: "timeout" }));
-		socket.on("error", error =>
-			finish({ ok: false, error: String(error), transport: (error as NodeJS.ErrnoException).code }),
-		);
-		socket.on("connect", () => socket.write(`${JSON.stringify(frame)}\n`));
-		let buffer = "";
-		socket.on("data", chunk => {
-			buffer += String(chunk);
-			const line = buffer.indexOf("\n");
-			if (line === -1) return;
-			try {
-				finish(JSON.parse(buffer.slice(0, line)) as PeerReply);
-			} catch {
-				finish({ ok: false, error: "bad response" });
-			}
-		});
-		socket.on("close", () => finish({ ok: false, error: "socket closed before replying" }));
-		return promise;
 	}
 
 	#loadState(): void {
@@ -930,6 +764,7 @@ class CollectiveNode {
 			return;
 		}
 		this.#pending.set(frame.from, { bodies: [frame.body], hop });
+		const human = frame.human === true;
 		try {
 			const { promise, resolve } = Promise.withResolvers<void>();
 			const timer = setTimeout(resolve, COALESCE_MS);
@@ -941,7 +776,7 @@ class CollectiveNode {
 				batch.bodies.length === 1
 					? batch.bodies[0]
 					: `${batch.bodies.length} messages arrived together:\n\n${batch.bodies.map((entry, index) => `${index + 1}. ${entry}`).join("\n\n")}`;
-			const outcome = this.#inject({ from: frame.from, body: body ?? "", replyTo: frame.replyTo, hop: batch.hop });
+			const outcome = this.#inject({ from: frame.from, body: body ?? "", replyTo: frame.replyTo, hop: batch.hop, human });
 			socket.write(`${JSON.stringify({ ok: true, outcome })}\n`);
 		} catch (error) {
 			this.#pending.delete(frame.from);
@@ -953,22 +788,36 @@ class CollectiveNode {
 	 * Hand an inbound message to the local agent as a prompt. An idle agent wakes into a
 	 * turn. A busy omp agent gets an aside, which lands without interrupting the running tool
 	 * batch; pi has no aside, so a busy pi agent is steered.
+	 *
+	 * A message from a person (CLI, Tern block) is not a relay: it starts no chain, adds no
+	 * contact, and the agent is told to answer in its own pane, since there is no callsign to
+	 * reply to.
 	 */
-	#inject(frame: { from: string; body: string; replyTo?: string; hop: number }): "injected" | "woken" {
+	#inject(frame: { from: string; body: string; replyTo?: string; hop: number; human: boolean }): "woken" | "aside" | "steered" {
 		const wakes = this.#ctx.isIdle();
-		// Any send the resulting turn makes inherits this distance from the human prompt.
-		this.#recordInbound(frame.from, frame.hop, wakes);
-		this.#addContact(frame.from);
-		// Sends a reply to this peer may still make, counting the reply itself.
-		const remaining = MAX_HOPS - this.#outboundHop(frame.from) + 1;
-		const budget =
-			remaining <= 1
-				? " This chain is at its last hop, so answer your user rather than relaying further."
-				: ` ${remaining} relay hops remain in this chain.`;
-		const text = `[collective] message from peer \`${frame.from}\`${frame.replyTo ? " (a reply)" : ""} to you (\`${this.#callsign}\`):\n\n${frame.body}\n\nReply with the \`peer_send\` tool addressed to \`${frame.from}\` if a response is useful.${budget}`;
-		if (wakes) this.#pi.sendUserMessage(text);
-		else this.#pi.sendUserMessage(text, { deliverAs: this.#via === "omp" ? "aside" : "steer" });
-		return wakes ? "woken" : "injected";
+		let text: string;
+		if (frame.human) {
+			if (wakes) this.resetLineage();
+			text = `[collective] message from ${frame.from} to you (\`${this.#callsign}\`):\n\n${frame.body}\n\nThis came from the user, not from another session: answer here, not with peer_send.`;
+		} else {
+			// Any send the resulting turn makes inherits this distance from the human prompt.
+			this.#recordInbound(frame.from, frame.hop, wakes);
+			this.#addContact(frame.from);
+			// Sends a reply to this peer may still make, counting the reply itself.
+			const remaining = MAX_HOPS - this.#outboundHop(frame.from) + 1;
+			const budget =
+				remaining <= 1
+					? " This chain is at its last hop, so answer your user rather than relaying further."
+					: ` ${remaining} relay hops remain in this chain.`;
+			text = `[collective] message from peer \`${frame.from}\`${frame.replyTo ? " (a reply)" : ""} to you (\`${this.#callsign}\`):\n\n${frame.body}\n\nReply with the \`peer_send\` tool addressed to \`${frame.from}\` if a response is useful.${budget}`;
+		}
+		this.#log({ at: Date.now(), dir: "in", peer: frame.from, hop: frame.hop, body: frame.body, human: frame.human || undefined });
+		if (wakes) {
+			this.#pi.sendUserMessage(text);
+			return "woken";
+		}
+		this.#pi.sendUserMessage(text, { deliverAs: this.#via === "omp" ? "aside" : "steer" });
+		return this.#via === "omp" ? "aside" : "steered";
 	}
 }
 
@@ -1026,21 +875,33 @@ export default function collective(pi: CollectivePi): void {
 	});
 
 	pi.registerCommand("collective", {
-		description: "List live agent instances in this collective (this omp profile)",
+		description: "Browse and message the sessions in this collective (this omp profile)",
 		handler: async (_args, ctx) => {
 			const live = ensureNode(pi, ctx);
 			if (!live) return;
-			const peers = live.listPeers();
-			const head = `collective "${live.scope}": you are ${live.callsign}`;
-			if (peers.length === 0) {
-				ctx.ui.notify(`${head} — no peers`, "info");
+			if (ctx.ui.custom) {
+				const api: CollectiveTuiApi = {
+					scope: live.scope,
+					via: live.via,
+					callsign: () => live.callsign,
+					override: () => live.override,
+					entries: () => live.entries(),
+					thread: peer => live.thread(peer),
+					send: (callsign, body) => live.send(callsign, body, { fromUser: true }),
+					rename: name => live.setOverride(name),
+					previewName: name => live.previewName(name),
+				};
+				await openCollectiveTui(ctx.ui.custom.bind(ctx.ui), api);
 				return;
 			}
-			const lines = peers.map(
-				({ record, contact, quiet }) =>
-					`${contact ? "★ " : ""}${record.callsign} — ${record.via}, pid ${record.pid} · ${record.cwd}${record.busy ? " · working" : ""}${quiet ? " · quiet" : ""}`,
+			// Hosts without custom components (print/RPC modes): a plain listing.
+			const entries = live.entries();
+			const head = `collective "${live.scope}": you are ${live.callsign}`;
+			const lines = entries.map(
+				entry =>
+					`${entry.contact ? "★ " : ""}${entry.callsign} — ${entry.state}${entry.via ? `, ${entry.via}` : ""}${entry.cwd ? ` · ${entry.cwd}` : ""}`,
 			);
-			ctx.ui.notify(`${head}\n${lines.join("\n")}`, "info");
+			ctx.ui.notify(lines.length > 0 ? `${head}\n${lines.join("\n")}` : `${head} — no peers`, "info");
 		},
 	});
 
@@ -1072,8 +933,8 @@ export default function collective(pi: CollectivePi): void {
 				return { content: [{ type: "text", text: `${head} No ${filter ? "matching " : ""}peers are live.` }] };
 			}
 			const lines = peers.map(
-				({ record, contact, quiet }) =>
-					`- \`${record.callsign}\` — ${record.via} in ${record.cwd} (${record.busy ? "working" : "idle"}${contact ? ", contact" : ""}${quiet ? ", no presence update for 5+ min — may be suspended" : ""})`,
+				({ record, contact, state }) =>
+					`- \`${record.callsign}\` — ${record.via} in ${record.cwd} (${record.busy ? "working" : "idle"}${contact ? ", contact" : ""}${state === "quiet" ? ", no presence update for 5+ min — may be suspended" : ""})`,
 			);
 			return {
 				content: [{ type: "text", text: `${head} ${peers.length} peer(s):\n${lines.join("\n")}` }],
