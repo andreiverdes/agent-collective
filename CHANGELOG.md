@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.2
 
 - The full-screen thread fills every row; the top line of the screen behind it showed through.
 - The selected session row is drawn in plain text on the selection color (state colors on it were
