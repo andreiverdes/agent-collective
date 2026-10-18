@@ -431,7 +431,10 @@ export interface LogEntry {
 	/** Out: woken, aside, steered, coalesced, refused, offline, unknown, failed. */
 	outcome?: string;
 	body: string;
-	/** In: the sender was a person (CLI, Tern), not a session. */
+	/**
+	 * A person typed it, not an agent. In: the sender was a person (CLI, Tern), not a session.
+	 * Out: this session's user sent it from /collective, so the agent never saw it.
+	 */
 	human?: boolean;
 }
 

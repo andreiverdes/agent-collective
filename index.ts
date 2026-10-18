@@ -603,14 +603,15 @@ class CollectiveNode {
 	): Promise<{ ok: boolean; outcome: string; text: string }> {
 		const target = resolveTarget(this.#dir, callsign);
 		const hop = options.fromUser ? 0 : this.#outboundHop(callsign);
+		const human = options.fromUser || undefined;
 		if (target.kind !== "live") {
-			if (target.kind === "offline") this.#log({ at: Date.now(), dir: "out", peer: callsign, hop, outcome: "offline", body });
+			if (target.kind === "offline") this.#log({ at: Date.now(), dir: "out", peer: callsign, hop, outcome: "offline", body, human });
 			return { ok: false, outcome: target.kind, text: unreachableText(callsign, this.scope, target) };
 		}
 		const frame: PeerFrame = { t: "msg", from: this.#callsign, body, replyTo: options.replyTo, hop };
 		const reply = await deliver(target.record, frame);
 		const outcome = reply.ok ? (reply.outcome ?? "injected") : reply.error?.startsWith("Refused") ? "refused" : "failed";
-		this.#log({ at: Date.now(), dir: "out", peer: callsign, hop, outcome, body });
+		this.#log({ at: Date.now(), dir: "out", peer: callsign, hop, outcome, body, human });
 		if (!reply.ok) return { ok: false, outcome, text: `Delivery to ${callsign} failed: ${reply.error ?? "unknown error"}` };
 		this.#addContact(callsign);
 		return { ok: true, outcome, text: `Delivered to ${callsign} (${outcome}). Its reply will arrive as a peer message.` };
@@ -792,6 +793,9 @@ class CollectiveNode {
 	 * A message from a person (CLI, Tern block) is not a relay: it starts no chain, adds no
 	 * contact, and the agent is told to answer in its own pane, since there is no callsign to
 	 * reply to.
+	 *
+	 * A peer's message may answer something this session's user sent it from /collective, which
+	 * never entered the agent's conversation; those messages are quoted ahead of it.
 	 */
 	#inject(frame: { from: string; body: string; replyTo?: string; hop: number; human: boolean }): "woken" | "aside" | "steered" {
 		const wakes = this.#ctx.isIdle();
@@ -809,7 +813,11 @@ class CollectiveNode {
 				remaining <= 1
 					? " This chain is at its last hop, so answer your user rather than relaying further."
 					: ` ${remaining} relay hops remain in this chain.`;
-			text = `[collective] message from peer \`${frame.from}\`${frame.replyTo ? " (a reply)" : ""} to you (\`${this.#callsign}\`):\n\n${frame.body}\n\nReply with the \`peer_send\` tool addressed to \`${frame.from}\` if a response is useful.${budget}`;
+			const asks = this.#unseenAsks(frame.from);
+			const context = asks.length
+				? `Before this, your user sent \`${frame.from}\` ${asks.length === 1 ? "this message" : "these messages"} from /collective, outside this conversation:\n\n${asks.map(ask => ask.replace(/^/gmu, "> ")).join("\n\n")}\n\nIts message:\n\n`
+				: "";
+			text = `[collective] message from peer \`${frame.from}\`${frame.replyTo ? " (a reply)" : ""} to you (\`${this.#callsign}\`):\n\n${context}${frame.body}\n\nReply with the \`peer_send\` tool addressed to \`${frame.from}\` if a response is useful.${budget}`;
 		}
 		this.#log({ at: Date.now(), dir: "in", peer: frame.from, hop: frame.hop, body: frame.body, human: frame.human || undefined });
 		if (wakes) {
@@ -818,6 +826,19 @@ class CollectiveNode {
 		}
 		this.#pi.sendUserMessage(text, { deliverAs: this.#via === "omp" ? "aside" : "steer" });
 		return this.#via === "omp" ? "aside" : "steered";
+	}
+
+	/**
+	 * What this session's user sent `peer` from /collective since the last message the agent
+	 * got from it: the agent has not seen those. Undelivered ones are left out.
+	 */
+	#unseenAsks(peer: string): string[] {
+		const asks: string[] = [];
+		for (const entry of this.thread(peer)) {
+			if (entry.dir === "in") asks.length = 0;
+			else if (entry.human && entry.outcome !== "refused" && entry.outcome !== "offline" && entry.outcome !== "failed") asks.push(entry.body);
+		}
+		return asks;
 	}
 }
 

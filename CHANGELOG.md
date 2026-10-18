@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- A peer's message that answers what you sent it from `/collective` now arrives with your
+  message quoted. The agent never saw it, so it got answers to questions it could not see.
+
 ## 0.5.2
 
 - The full-screen thread fills every row; the top line of the screen behind it showed through.

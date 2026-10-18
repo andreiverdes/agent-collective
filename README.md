@@ -97,7 +97,10 @@ fake sessions).
 | `esc` | clear the filter, then close | back to the list (the draft is kept) |
 
 Contacts come first, then the other running sessions, then offline callsigns (dimmed). A message
-typed in the TUI goes out as this session at hop 0: you typed it, so it starts a new chain.
+typed in the TUI goes out as this session at hop 0: you typed it, so it starts a new chain. It
+does not enter this session's conversation, so when the peer next messages back, the message
+arrives with what you sent it quoted ahead of it; otherwise your agent would see an answer with
+no question.
 
 ### CLI
 

@@ -198,6 +198,17 @@ view = await screen("alpha", { cmd: "tui-keys", data: "sent from the TUI\r", set
 check(view.includes("Delivered to beta"), "the composer sends", view.split("\n").at(-1));
 check(String(evs("beta", "inbound").at(-1)?.text ?? "").includes("sent from the TUI"), "the peer receives the composed message");
 check(logOf("sess-alpha").some(e => e.dir === "out" && e.body === "sent from the TUI" && e.hop === 0), "a message typed in the TUI is hop 0");
+const answer = await tool("beta", "peer_send", { to: "alpha", message: "answer to the TUI" });
+await sleep(700);
+const answerIn = String(evs("alpha", "inbound").at(-1)?.text ?? "");
+check(
+	answer.startsWith("Delivered") && answerIn.includes("your user sent `beta` this message from /collective") && answerIn.includes("> sent from the TUI\n\nIts message:\n\nanswer to the TUI"),
+	"a reply to a TUI message quotes it, since the agent never saw it",
+	answer,
+);
+await tool("beta", "peer_send", { to: "alpha", message: "a follow-up" });
+await sleep(700);
+check(!String(evs("alpha", "inbound").at(-1)?.text ?? "").includes("sent from the TUI"), "the next message from that peer does not quote it again");
 view = await screen("alpha", { cmd: "tui-keys", data: "\x1b" });
 view = await screen("alpha", { cmd: "tui-keys", data: "g" });
 check(view.includes("not in a Tern or herdr pane") || view.includes("could not focus"), "go to pane reports when it cannot focus", view.split("\n").at(-1));
