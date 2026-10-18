@@ -14,10 +14,12 @@
     "LICENSE",
     "store.ts",
     "tui.ts",
-    "bin"
+    "dist"
   ],
   "scripts": {
     "typecheck": "tsc --noEmit --strict --skipLibCheck --module esnext --target es2022 --lib es2024 --moduleResolution bundler --allowImportingTsExtensions --types node index.ts bin/agent-collective.ts",
+    "build": "bun build bin/agent-collective.ts --target=node --outfile dist/agent-collective.js",
+    "prepack": "npm run -s build",
     "package:dry-run": "npm pack --dry-run",
     "test": "bun --no-install test/acceptance.ts"
   },
@@ -37,7 +39,7 @@
   ],
   "license": "MIT",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "publishConfig": {
     "access": "public"
@@ -78,6 +80,6 @@
     "typescript": "5.7.3"
   },
   "bin": {
-    "agent-collective": "bin/agent-collective.ts"
+    "agent-collective": "dist/agent-collective.js"
   }
 }

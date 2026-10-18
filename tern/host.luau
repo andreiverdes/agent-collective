@@ -92,7 +92,7 @@ local function cli_path(): (string?, string?)
 		return nil, "The CLI path set for this plugin does not exist: " .. set
 	end
 	local candidates = {
-		HOME .. "/.omp/plugins/node_modules/agent-collective/bin/agent-collective.ts",
+		HOME .. "/.omp/plugins/node_modules/agent-collective/dist/agent-collective.js",
 		-- Linked from a checkout: the plugin is <repo>/tern, the CLI <repo>/bin.
 		tern.plugin.dir .. "/../bin/agent-collective.ts",
 	}

@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
  * agent-collective CLI: read a collective and message its sessions from outside any session
- * (a shell, the Tern block). Runs under node ≥22.18 (type stripping) or bun.
+ * (a shell, the Tern block). The package ships it built to `dist/agent-collective.js`
+ * (`npm run build`, run on pack), which runs under node ≥22 or bun: node does not strip
+ * types under node_modules. From a checkout, this file runs under bun or node ≥22.18.
  *
  *   agent-collective list   [--profile P] [--json]
  *   agent-collective send   [--profile P] [--from LABEL] <callsign> <message…>

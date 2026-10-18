@@ -17,10 +17,11 @@ tern plugin link <repo>/tern     # tern plugin unlink agent-collective to stop
 tern plugin reload               # after editing host.luau, window.luau or style.css
 ```
 
-The block runs the agent-collective CLI (`bin/agent-collective.ts`), so agent-collective itself
-must be installed (`omp plugin install agent-collective`). It looks for the CLI in
-`~/.omp/plugins/node_modules/agent-collective/bin/agent-collective.ts`, then beside a linked
-checkout (`<repo>/bin`), and runs it with bun or Node 22.18+, found by absolute path (`~/.bun/bin`,
+The block runs the agent-collective CLI, so agent-collective itself must be installed
+(`omp plugin install agent-collective`). It looks for the CLI in
+`~/.omp/plugins/node_modules/agent-collective/dist/agent-collective.js`, then beside a linked
+checkout (`<repo>/bin/agent-collective.ts`), and runs it with bun or Node 22.18+ (the checkout's
+`.ts` needs 22.18), found by absolute path (`~/.bun/bin`,
 `/opt/homebrew/bin`, `/usr/local/bin`, `~/.volta/bin`, `~/.nvm`, then Tern's `PATH`). To point it
 elsewhere, use the palette's **Collective: Set CLI path…** and **Collective: Set runtime…** (an
 empty value goes back to looking it up), or set `AGENT_COLLECTIVE_CLI` / `AGENT_COLLECTIVE_RUNTIME`

@@ -110,7 +110,7 @@ agent-collective send   [--profile P] [--from LABEL] <callsign> <message…>
 agent-collective thread [--profile P] --session <id> [--peer <callsign>] [--json]
 ```
 
-Runs under node ≥ 22.18 or bun. `send` delivers as a person, not a session: the peer is told the
+Runs under node ≥ 22 or bun. `send` delivers as a person, not a session: the peer is told the
 message came from the user and to answer in its own pane. Exit codes: 0 delivered, 2 unknown or
 offline callsign, 1 any other failure.
 

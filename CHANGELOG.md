@@ -4,6 +4,10 @@
 
 - A peer's message that answers what you sent it from `/collective` now arrives with your
   message quoted. The agent never saw it, so it got answers to questions it could not see.
+- The `agent-collective` CLI runs under node when installed from npm. The package now ships it
+  built to `dist/agent-collective.js`; node refuses to strip types under `node_modules`, so the
+  `.ts` entry failed with `ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`. `engines.node` is now
+  `>=22` (it used `Promise.withResolvers` all along). The Tern block looks for the built file.
 
 ## 0.5.2
 

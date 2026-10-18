@@ -167,6 +167,22 @@ check(!String(evs("alpha", "status").at(-1)?.t ?? "").includes("Tern"), "a human
 check(cli("send", "nobody", "hi").code === 2, "CLI send to an unknown callsign exits 2");
 const thread = JSON.parse(cli("thread", "--session", "sess-alpha", "--peer", "beta", "--json").out) as { messages: unknown[] };
 check(thread.messages.length >= 3, "CLI thread reads one session's exchange with a peer", `${thread.messages.length} messages`);
+// The published CLI, installed under node_modules, runs under plain node
+const installed = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "collective-pack-")), "node_modules/agent-collective");
+fs.mkdirSync(installed, { recursive: true });
+const packed = Bun.spawnSync(["npm", "pack", "--silent", "--pack-destination", path.dirname(installed)], { cwd: path.resolve(import.meta.dir, "..") });
+const tarball = path.join(path.dirname(installed), packed.stdout.toString().trim().split("\n").at(-1) ?? "");
+Bun.spawnSync(["tar", "-xzf", tarball, "--strip-components=1", "-C", installed]);
+const manifest: unknown = JSON.parse(fs.readFileSync(path.join(installed, "package.json"), "utf8"));
+const bins = manifest && typeof manifest === "object" && "bin" in manifest ? manifest.bin : undefined;
+const binPath = bins && typeof bins === "object" && "agent-collective" in bins ? String(bins["agent-collective"]) : "";
+const viaNode = Bun.spawnSync(["node", path.join(installed, binPath), "list", "--json"], { env: { ...process.env, HOME: home, OMP_PROFILE: "", PI_PROFILE: "" } });
+check(
+	viaNode.exitCode === 0 && /"callsign":\s*"alpha"/u.test(viaNode.stdout.toString()),
+	"the packed CLI runs under node from node_modules",
+	viaNode.stderr.toString().trim().split("\n")[0],
+);
+fs.rmSync(path.dirname(path.dirname(installed)), { recursive: true, force: true });
 cmd("alpha", { cmd: "end" });
 const screen = async (n: string, o: object) => {
 	const id = ++seq;

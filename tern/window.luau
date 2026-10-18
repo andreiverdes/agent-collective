@@ -175,7 +175,7 @@ tern.command({
 	id = "set_cli",
 	title = "Collective: Set CLI path…",
 	run = function(cx)
-		set_path(cx, "cli", "CLI path", "Path to bin/agent-collective.ts (empty: find it)")
+		set_path(cx, "cli", "CLI path", "Path to the agent-collective CLI (empty: find it)")
 	end,
 })
 
