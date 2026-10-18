@@ -62,8 +62,11 @@ interrupt its running tool batch; a busy pi peer is steered (pi has no aside).
 
 ### The /collective TUI
 
-A full-screen overlay over the transcript (omp and pi). It reads the collective from disk every
-2 s; opening it costs no model turn.
+A panel along the bottom of the screen, over the editor, with the transcript still visible above
+it (omp and pi): one row per session, up to 8, scrolling beyond that. `tab` switches to full
+screen, which adds sections and a detail column, and back; the choice sticks for the next
+`/collective` in that process. It reads the collective from disk every 2 s; opening it costs no
+model turn.
 
 | Key | Sessions list | Thread with one peer |
 | --- | --- | --- |
@@ -75,6 +78,7 @@ A full-screen overlay over the transcript (omp and pi). It reads the collective 
 | `g` / `ctrl+g` | focus the session's Tern or herdr pane | focus its pane |
 | `y` | copy the callsign | |
 | `r` | rename this session (`ctrl+u` in the dialog clears a `/callsign` override) | |
+| `tab` | full screen ⇄ bottom panel | full screen ⇄ bottom panel |
 | `esc` | clear the filter, then close | back to the list (the draft is kept) |
 
 Contacts come first, then the other running sessions, then offline callsigns (dimmed). A message

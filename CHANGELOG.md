@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.1
+
+- `/collective` opens as a **bottom panel** over the editor (the design's "sessions, bottom
+  panel" screen), leaving the transcript visible: a title with `N of M · ↓ more`, up to 8 session
+  rows, key hints. `tab` switches to the full-screen view and back, in the list and in a thread;
+  the choice is kept for the next `/collective` in the same process.
+
 ## 0.5.0
 
 - **`/collective` TUI** (omp and pi): a full-screen overlay with every session in the collective

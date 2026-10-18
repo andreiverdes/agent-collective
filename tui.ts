@@ -1,6 +1,8 @@
 /**
- * The /collective TUI: a full-screen overlay opened with `ctx.ui.custom`, which omp and pi
- * both provide with the same factory shape `(tui, theme, keybindings, done) => Component`.
+ * The /collective TUI: an overlay opened with `ctx.ui.custom`, which omp and pi both provide
+ * with the same factory shape `(tui, theme, keybindings, done) => Component`. It opens as a panel
+ * along the bottom of the screen, over the editor, with the transcript still visible above;
+ * `tab` switches to full screen (with the detail column and sections) and back.
  *
  * Three modes, as in docs/design/collective-tui.bluedoc.json:
  *   list    every session in the collective: contacts, others, offline (dimmed); a detail panel
@@ -57,6 +59,13 @@ export type CustomUi = <T>(
 
 const REFRESH_MS = 2_000;
 const STATUS_MS = 4_000;
+/** Session rows the bottom panel shows at most; it scrolls beyond that. */
+const PANEL_LIST_ROWS = 8;
+/** Thread and rename need this many rows even in the panel. */
+const PANEL_MIN_DIALOG_ROWS = 13;
+
+/** Full screen or panel, remembered for the next /collective in this process. */
+let fullScreen = false;
 
 // ---------------------------------------------------------------------------------------------
 // Keys
@@ -362,7 +371,8 @@ export class CollectiveView implements TuiComponent {
 
 	handleInput(data: string): void {
 		for (const key of decodeKeys(data)) {
-			if (this.#mode === "list") this.#listKey(key);
+			if (key.name === "tab" && !key.ctrl && !key.alt) fullScreen = !fullScreen;
+			else if (this.#mode === "list") this.#listKey(key);
 			else if (this.#mode === "thread") this.#threadKey(key);
 			else this.#renameKey(key);
 		}
@@ -371,7 +381,7 @@ export class CollectiveView implements TuiComponent {
 
 	#listKey(key: KeyPress): void {
 		const count = this.#visible().length;
-		const page = Math.max(1, this.#rows() - 8);
+		const page = Math.max(1, (fullScreen ? this.#rows() - 8 : PANEL_LIST_ROWS) - 1);
 		if (this.#filtering) {
 			if (key.name === "escape") {
 				this.#filtering = false;
@@ -497,11 +507,26 @@ export class CollectiveView implements TuiComponent {
 		return Math.max(12, this.#tui.terminal?.rows ?? process.stdout.rows ?? 30);
 	}
 
+	/** Lines to render: the whole terminal, or a panel sized to the collective (stable while filtering). */
+	#height(): number {
+		const term = this.#rows();
+		if (fullScreen) return term;
+		const list = 3 + Math.min(PANEL_LIST_ROWS, Math.max(4, this.#entries.length));
+		return Math.min(term, this.#mode === "list" ? list : Math.max(list, PANEL_MIN_DIALOG_ROWS));
+	}
+
 	render(width: number): string[] {
-		const rows = this.#rows();
-		const lines = this.#mode === "thread" ? this.#renderThread(width, rows) : this.#renderList(width, rows);
+		const height = this.#height();
+		if (fullScreen) {
+			const lines = this.#mode === "thread" ? this.#renderThread(width, height) : this.#renderList(width, height);
+			if (this.#mode === "rename") this.#overlayRename(lines, width, height);
+			return lines.slice(0, height).map(line => fit(line, width));
+		}
+		// The panel's own top edge separates it from the transcript it covers.
+		const rows = height - 1;
+		const lines = this.#mode === "thread" ? this.#renderThread(width, rows) : this.#renderPanel(width, rows);
 		if (this.#mode === "rename") this.#overlayRename(lines, width, rows);
-		return lines.slice(0, rows).map(line => fit(line, width));
+		return [this.#theme.fg("accent", "━".repeat(width)), ...lines.slice(0, rows).map(line => fit(line, width))];
 	}
 
 	#stateCell(entry: CollectiveEntry): string {
@@ -569,7 +594,57 @@ export class CollectiveView implements TuiComponent {
 				["g", "go to pane"],
 				["y", "copy"],
 				["r", "rename me"],
+				["tab", "panel"],
 				["esc", "close"],
+			]),
+		);
+		return lines;
+	}
+
+	/** The bottom panel: a title, one row per session (no sections, no detail), key hints. */
+	#renderPanel(width: number, rows: number): string[] {
+		const t = this.#theme;
+		const visible = this.#visible();
+		if (this.#selected >= visible.length) this.#selected = Math.max(0, visible.length - 1);
+		const room = Math.max(1, rows - 2);
+		if (this.#selected < this.#scroll) this.#scroll = this.#selected;
+		if (this.#selected >= this.#scroll + room) this.#scroll = this.#selected - room + 1;
+		this.#scroll = Math.max(0, Math.min(this.#scroll, Math.max(0, visible.length - room)));
+		const shown = visible.slice(this.#scroll, this.#scroll + room);
+
+		const filter =
+			this.#filtering || this.#filter ? `  ${t.fg("accent", "/")} ${this.#filter}${this.#filtering ? t.fg("accent", "▏") : ""}` : "";
+		const left = ` ${t.bold(t.fg("accent", "collective"))} ${this.#api.scope} ${t.fg("dim", "·")} you are ${t.fg("accent", this.#api.callsign())}${filter}`;
+		const more = this.#scroll + room < visible.length ? " · ↓ more" : this.#scroll > 0 ? " · ↑ more" : "";
+		const right = t.fg("muted", `${this.#contactsOnly ? "contacts only · " : ""}${shown.length} of ${visible.length}${more} `);
+		const lines: string[] = [fit(left, Math.max(0, width - visibleWidth(right))) + right];
+
+		const nameW = Math.min(24, Math.max(14, ...visible.map(e => e.callsign.length)));
+		const stateW = 10;
+		const whereW = 12;
+		const seenW = 5;
+		const dirW = Math.max(8, width - 4 - nameW - stateW - whereW - seenW - 4);
+		if (visible.length === 0) {
+			lines.push(t.fg("muted", this.#filter || this.#contactsOnly ? "   nothing matches" : "   no other sessions in this collective"));
+		}
+		shown.forEach((entry, offset) => {
+			const off = entry.state === "offline";
+			const text = ` ${entry.contact ? t.fg("warning", "★") : " "} ${fit(entry.callsign, nameW)} ${fit(this.#stateCell(entry), stateW)} ${fit(shortDir(entry.cwd), dirW)} ${fit(off ? "—" : whereLabel(entry), whereW)} ${fit(this.#seen(entry), seenW, false)}`;
+			const row = off ? t.fg("dim", text) : text;
+			lines.push(this.#scroll + offset === this.#selected ? t.bg("selectedBg", fit(row, width)) : row);
+		});
+		while (lines.length < rows - 1) lines.push("");
+		lines.push(
+			this.#footer(width, [
+				["↑↓", "select"],
+				["enter", "thread"],
+				["/", "filter"],
+				["g", "go to pane"],
+				["tab", "full screen"],
+				["esc", "close"],
+				["c", "contacts"],
+				["y", "copy"],
+				["r", "rename me"],
 			]),
 		);
 		return lines;
@@ -726,6 +801,7 @@ export class CollectiveView implements TuiComponent {
 				["enter", `send as ${this.#api.callsign()} (hop 0)`],
 				["shift+enter", "new line"],
 				["ctrl+g", "go to pane"],
+				["tab", fullScreen ? "panel" : "full screen"],
 				["esc", "back"],
 			]),
 		);
@@ -766,10 +842,10 @@ export class CollectiveView implements TuiComponent {
 	}
 }
 
-/** Open the full-screen /collective overlay; resolves when it closes. */
+/** Open /collective as a bottom panel (or full screen, if that was last used); resolves when it closes. */
 export async function openCollectiveTui(custom: CustomUi, api: CollectiveTuiApi): Promise<void> {
 	await custom<void>(
 		(tui, theme, _keybindings, done) => new CollectiveView(api, tui, theme, () => done(undefined)),
-		{ overlay: true, overlayOptions: { anchor: "center", width: "100%", maxHeight: "100%", margin: 0 } },
+		{ overlay: true, overlayOptions: { anchor: "bottom-center", width: "100%", maxHeight: "100%", margin: 0 } },
 	);
 }
