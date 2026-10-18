@@ -6,12 +6,12 @@
     "org": "agent-collective",
     "kind": "Design",
     "type": "design",
-    "rev": "1",
+    "rev": "2",
     "date": "2026-10-18"
   },
   "state": [
     {
-      "label": "wireframes: hi-fi after your picks",
+      "label": "hi-fi: switch themes with the pills; picks open",
       "kind": "warn"
     }
   ],
@@ -25,11 +25,26 @@
         {
           "type": "terms",
           "items": [
-            { "term": "session", "md": "One running omp or pi agent with the extension loaded; it has a callsign such as `be-audio-001`." },
-            { "term": "collective", "md": "Every session in one omp profile (`~/.agent-collective/<profile>/`). The TUI never shows another profile." },
-            { "term": "contact", "md": "A session this one has messaged or heard from; starred and listed first." },
-            { "term": "offline", "md": "A callsign still reserved for a session that is not running (up to 7 days after it last ran)." },
-            { "term": "thread", "md": "The messages this session exchanged with one peer, oldest first." }
+            {
+              "term": "session",
+              "md": "One running omp or pi agent with the extension loaded; it has a callsign such as `be-audio-001`."
+            },
+            {
+              "term": "collective",
+              "md": "Every session in one omp profile (`~/.agent-collective/<profile>/`). The TUI never shows another profile."
+            },
+            {
+              "term": "contact",
+              "md": "A session this one has messaged or heard from; starred and listed first."
+            },
+            {
+              "term": "offline",
+              "md": "A callsign still reserved for a session that is not running (up to 7 days after it last ran)."
+            },
+            {
+              "term": "thread",
+              "md": "The messages this session exchanged with one peer, oldest first."
+            }
           ]
         },
         {
@@ -48,8 +63,14 @@
               "sub": "Recommend Plain kit: these are terminal cells, so only colour tokens and a monospace grid matter.",
               "recommend": "plain",
               "choices": [
-                { "id": "plain", "label": "Plain kit" },
-                { "id": "horizon", "label": "HorizonUI" }
+                {
+                  "id": "plain",
+                  "label": "Plain kit"
+                },
+                {
+                  "id": "horizon",
+                  "label": "HorizonUI"
+                }
               ],
               "detail": "The real UI is drawn by omp's TUI (`Component.render(width) → string[]`) and by Tern's TSP nodes (`tern.ui.table`, `list`, `badge`), not by HTML. The mock only needs a character grid and the theme's colours; a component framework would mislead about what can be drawn."
             },
@@ -59,9 +80,18 @@
               "sub": "Recommend omp dark: it is what the overlay sits on; Tern re-skins its block with its own theme anyway.",
               "recommend": "omp-dark",
               "choices": [
-                { "id": "omp-dark", "label": "omp dark" },
-                { "id": "tern", "label": "Tern" },
-                { "id": "light", "label": "Light terminal" }
+                {
+                  "id": "omp-dark",
+                  "label": "omp dark"
+                },
+                {
+                  "id": "tern",
+                  "label": "Tern"
+                },
+                {
+                  "id": "light",
+                  "label": "Light terminal"
+                }
               ]
             },
             {
@@ -70,8 +100,14 @@
               "sub": "Recommend full-screen overlay: 25 sessions need the rows; Esc returns to the transcript.",
               "recommend": "full",
               "choices": [
-                { "id": "full", "label": "Full-screen overlay" },
-                { "id": "panel", "label": "Bottom panel (12 rows)" }
+                {
+                  "id": "full",
+                  "label": "Full-screen overlay"
+                },
+                {
+                  "id": "panel",
+                  "label": "Bottom panel (12 rows)"
+                }
               ],
               "detail": "Full-screen: the **Sessions** and **Thread** screens. Bottom panel: the **Sessions, bottom panel** variant; the transcript stays visible above, 8 sessions fit before scrolling, and the thread opens full-screen anyway."
             },
@@ -81,8 +117,14 @@
               "sub": "Recommend log: the thread view and outcome history need it; cost is one small file append per message.",
               "recommend": "log",
               "choices": [
-                { "id": "log", "label": "Keep a log" },
-                { "id": "none", "label": "No log" }
+                {
+                  "id": "log",
+                  "label": "Keep a log"
+                },
+                {
+                  "id": "none",
+                  "label": "No log"
+                }
               ],
               "detail": "**Keep a log:** append one JSON line per sent or received message to `sessions/<session-id>.log.jsonl` (time, peer, direction, hop, outcome, body), capped at the last 500 lines. **No log:** the Thread screen can show only messages that arrived since the TUI opened; outcomes of earlier sends are lost."
             },
@@ -92,9 +134,18 @@
               "sub": "Recommend show, dimmed: a send to them is answered \"offline\" anyway, so seeing them avoids the surprise.",
               "recommend": "show",
               "choices": [
-                { "id": "show", "label": "Show, dimmed" },
-                { "id": "toggle", "label": "Hidden, `o` shows" },
-                { "id": "hide", "label": "Never show" }
+                {
+                  "id": "show",
+                  "label": "Show, dimmed"
+                },
+                {
+                  "id": "toggle",
+                  "label": "Hidden, `o` shows"
+                },
+                {
+                  "id": "hide",
+                  "label": "Never show"
+                }
               ]
             },
             {
@@ -103,8 +154,14 @@
               "sub": "Recommend a CLI in the package: Tern plugins can run processes but cannot open unix sockets.",
               "recommend": "cli",
               "choices": [
-                { "id": "cli", "label": "agent-collective send CLI" },
-                { "id": "focus-only", "label": "Go to pane only" }
+                {
+                  "id": "cli",
+                  "label": "agent-collective send CLI"
+                },
+                {
+                  "id": "focus-only",
+                  "label": "Go to pane only"
+                }
               ],
               "detail": "Tern's Luau API has `tern.fs` (read records) and `tern.process.run`, but no socket client. **CLI:** ship `bin/agent-collective send <callsign> <message>` in the package; the block runs it, and the peer sees the message as from `you (via Tern)` at hop 0. **Go to pane only:** the block lists sessions and jumps to their pane; you type there."
             }
@@ -120,48 +177,110 @@
         {
           "type": "board",
           "id": "main",
-          "targets": ["desktop"],
+          "targets": [
+            "desktop"
+          ],
           "framework": "plain",
-          "entry": ["omp-sessions", "tern-block"],
+          "entry": [
+            "omp-sessions",
+            "tern-block"
+          ],
           "themes": [
             {
               "id": "omp-dark",
               "label": "omp dark",
               "tokens": {
-                "accent": "#7aa2f7", "accent-fg": "#0b0e14", "bg": "#0f1117", "surface": "#161a23",
-                "fg": "#d6dbe5", "muted": "#7c8597", "border": "#2a3040",
-                "ok": "#9ece6a", "warn": "#e0af68", "risk": "#f7768e"
+                "accent": "#7aa2f7",
+                "accent-fg": "#0b0e14",
+                "bg": "#0f1117",
+                "surface": "#161a23",
+                "fg": "#d6dbe5",
+                "muted": "#7c8597",
+                "border": "#2a3040",
+                "ok": "#9ece6a",
+                "warn": "#e0af68",
+                "risk": "#f7768e"
               }
             },
             {
               "id": "tern",
               "label": "Tern",
               "tokens": {
-                "accent": "#c4a7e7", "accent-fg": "#191724", "bg": "#191724", "surface": "#1f1d2e",
-                "fg": "#e0def4", "muted": "#908caa", "border": "#2a273f",
-                "ok": "#9ccfd8", "warn": "#f6c177", "risk": "#eb6f92"
+                "accent": "#c4a7e7",
+                "accent-fg": "#191724",
+                "bg": "#191724",
+                "surface": "#1f1d2e",
+                "fg": "#e0def4",
+                "muted": "#908caa",
+                "border": "#2a273f",
+                "ok": "#9ccfd8",
+                "warn": "#f6c177",
+                "risk": "#eb6f92"
               }
             },
             {
               "id": "light",
               "label": "Light terminal",
               "tokens": {
-                "accent": "#3b5bdb", "accent-fg": "#ffffff", "bg": "#fbfbf8", "surface": "#f1f1ec",
-                "fg": "#24292f", "muted": "#6e7781", "border": "#d8dee4",
-                "ok": "#1a7f37", "warn": "#9a6700", "risk": "#cf222e"
+                "accent": "#3b5bdb",
+                "accent-fg": "#ffffff",
+                "bg": "#fbfbf8",
+                "surface": "#f1f1ec",
+                "fg": "#24292f",
+                "muted": "#6e7781",
+                "border": "#d8dee4",
+                "ok": "#1a7f37",
+                "warn": "#9a6700",
+                "risk": "#cf222e"
               }
             }
           ],
-          "motion": { "fast": "120ms", "base": "200ms", "slow": "320ms", "ease": "cubic-bezier(.2,0,0,1)" },
+          "motion": {
+            "fast": "120ms",
+            "base": "200ms",
+            "slow": "320ms",
+            "ease": "cubic-bezier(.2,0,0,1)"
+          },
           "artboards": [
-            { "id": "omp-sessions", "title": "omp · /collective: sessions", "device": "desktop", "fidelity": "wireframe" },
-            { "id": "omp-sessions-panel", "title": "omp · /collective: sessions, bottom panel", "device": "desktop", "fidelity": "wireframe", "variantOf": "omp-sessions" },
-            { "id": "omp-thread", "title": "omp · /collective: thread with be-audio-001", "device": "desktop", "fidelity": "wireframe" },
-            { "id": "omp-rename", "title": "omp · /collective: rename this session", "device": "desktop", "fidelity": "wireframe" },
-            { "id": "tern-block", "title": "Tern · Collective block beside agent panes", "device": "desktop", "fidelity": "wireframe", "x": 0, "y": 1000 }
+            {
+              "id": "omp-sessions",
+              "title": "omp · /collective: sessions",
+              "device": "desktop",
+              "fidelity": "hifi"
+            },
+            {
+              "id": "omp-sessions-panel",
+              "title": "omp · /collective: sessions, bottom panel",
+              "device": "desktop",
+              "fidelity": "hifi",
+              "variantOf": "omp-sessions"
+            },
+            {
+              "id": "omp-thread",
+              "title": "omp · /collective: thread with be-audio-001",
+              "device": "desktop",
+              "fidelity": "hifi"
+            },
+            {
+              "id": "omp-rename",
+              "title": "omp · /collective: rename this session",
+              "device": "desktop",
+              "fidelity": "hifi"
+            },
+            {
+              "id": "tern-block",
+              "title": "Tern · Collective block beside agent panes",
+              "device": "desktop",
+              "fidelity": "hifi",
+              "x": 0,
+              "y": 1000
+            }
           ]
         }
       ]
     }
+  ],
+  "changes": [
+    "Screens switched to hi-fi: wireframe fidelity greyed the theme colours, so omp dark / Tern / Light had no effect."
   ]
 }
