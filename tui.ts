@@ -546,7 +546,7 @@ export class CollectiveView implements TuiComponent {
 
 	#header(width: number, parts: string[]): string {
 		const t = this.#theme;
-		return t.bg("selectedBg", fit(` ${parts.join(t.fg("dim", "  │  "))}`, width));
+		return t.bg("customMessageBg", fit(` ${parts.join(t.fg("dim", "  │  "))}`, width));
 	}
 
 	#footer(width: number, hints: [string, string][]): string {
@@ -631,7 +631,8 @@ export class CollectiveView implements TuiComponent {
 			const off = entry.state === "offline";
 			const text = ` ${entry.contact ? t.fg("warning", "★") : " "} ${fit(entry.callsign, nameW)} ${fit(this.#stateCell(entry), stateW)} ${fit(shortDir(entry.cwd), dirW)} ${fit(off ? "—" : whereLabel(entry), whereW)} ${fit(this.#seen(entry), seenW, false)}`;
 			const row = off ? t.fg("dim", text) : text;
-			lines.push(this.#scroll + offset === this.#selected ? t.bg("selectedBg", fit(row, width)) : row);
+			// Colored cells on the selection background are unreadable: the selected row is plain.
+			lines.push(this.#scroll + offset === this.#selected ? t.bg("selectedBg", fit(text.replace(ANSI, ""), width)) : row);
 		});
 		while (lines.length < rows - 1) lines.push("");
 		lines.push(
@@ -702,7 +703,7 @@ export class CollectiveView implements TuiComponent {
 				this.#seen(entry),
 			);
 			const shown = off ? t.fg("dim", text) : text;
-			out.push(row.index === this.#selected ? t.bg("selectedBg", fit(shown, width)) : shown);
+			out.push(row.index === this.#selected ? t.bg("selectedBg", fit(text.replace(ANSI, ""), width)) : shown);
 		}
 		return out;
 	}
@@ -770,7 +771,8 @@ export class CollectiveView implements TuiComponent {
 		);
 		const composerLines = wrap(this.#draft, width - 4);
 		const composerRows = Math.min(6, composerLines.length);
-		const logRows = rows - lines.length - composerRows - 3;
+		// Header, log, separator, composer, footer: exactly `rows` lines, or the screen behind shows through.
+		const logRows = rows - lines.length - composerRows - 2;
 		const body: string[] = [];
 		const whoW = Math.min(36, Math.max(20, peer.length + 18));
 		const textW = Math.max(20, width - whoW - 9);

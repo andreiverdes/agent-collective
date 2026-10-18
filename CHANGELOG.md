@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- The full-screen thread fills every row; the top line of the screen behind it showed through.
+- The selected session row is drawn in plain text on the selection color (state colors on it were
+  unreadable), and the header bar uses the subtle message background instead of the selection color.
+- README: screenshots of the bottom panel, the full-screen list and a thread.
+
 ## 0.5.1
 
 - `/collective` opens as a **bottom panel** over the editor (the design's "sessions, bottom

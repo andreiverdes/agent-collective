@@ -192,7 +192,7 @@ check(/★ beta/u.test(view) && procs.alpha!.evs.every(e => e.ev !== "tui-closed
 view = await screen("alpha", { cmd: "tui-keys", data: "/beta\r\r" });
 check(view.includes("you ⇄ beta") && view.includes("[woken]"), "enter opens the thread with logged messages and outcomes");
 view = await screen("alpha", { cmd: "tui-keys", data: "\t" });
-check(view.includes("hello from alpha"), "full screen shows the older messages of the thread");
+check(view.includes("hello from alpha") && view.split("\n").length === ROWS_IN_TEST, "full screen shows the older messages of the thread, on every row", `${view.split("\n").length} lines`);
 view = await screen("alpha", { cmd: "tui-keys", data: "\t" });
 view = await screen("alpha", { cmd: "tui-keys", data: "sent from the TUI\r", settle: 900 });
 check(view.includes("Delivered to beta"), "the composer sends", view.split("\n").at(-1));

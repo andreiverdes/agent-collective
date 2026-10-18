@@ -10,6 +10,8 @@ peers filter="audio"               → find the exact callsign
 peer_send to="be-audio" message="…" → a real prompt in that session; its reply arrives here
 ```
 
+![/collective as a bottom panel under an omp transcript](docs/screenshots/collective-panel.png)
+
 Three rules:
 
 - **Scoped by omp profile.** Sessions started with `omp --profile greenely` form their own
@@ -67,6 +69,19 @@ it (omp and pi): one row per session, up to 8, scrolling beyond that. `tab` swit
 screen, which adds sections and a detail column, and back; the choice sticks for the next
 `/collective` in that process. It reads the collective from disk every 2 s; opening it costs no
 model turn.
+
+`tab` gives the full-screen list, with contacts, others and offline callsigns in sections, and a
+detail column for the selected session:
+
+![/collective full screen: sections and the detail column](docs/screenshots/collective-full.png)
+
+`enter` opens the thread with that peer: every message both ways, each sent one tagged with what
+happened to it (`aside` here: the peer was mid-turn), and a composer:
+
+![A thread with be-audio-001 in the bottom panel](docs/screenshots/collective-thread.png)
+
+The screenshots are of a real omp session in a demo collective (its peers are the test harness's
+fake sessions).
 
 | Key | Sessions list | Thread with one peer |
 | --- | --- | --- |
