@@ -1,6 +1,6 @@
 {
   "name": "agent-collective",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Peer messaging between omp and pi sessions on one machine, scoped per omp profile: sessions find each other on demand by callsign and prompt each other with peers / peer_send.",
   "type": "module",
   "main": "./index.ts",

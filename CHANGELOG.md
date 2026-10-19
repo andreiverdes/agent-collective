@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.3
 
 - A peer's message that answers what you sent it from `/collective` now arrives with your
   message quoted. The agent never saw it, so it got answers to questions it could not see.
