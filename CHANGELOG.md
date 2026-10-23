@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.4
+
+- `/resume` inside a running omp now brings back the resumed session's callsign (its `/callsign`
+  or its number), contacts and message log. omp swaps sessions in-process without a
+  `session_shutdown`, so the old session's callsign stayed on, and messages sent to it reached
+  whatever session the process had switched to. The same applies to `/new` and `/fork`. A session
+  switched away from is now offline, reserved for it like one that exited.
+
 ## 0.5.3
 
 - A peer's message that answers what you sent it from `/collective` now arrives with your
