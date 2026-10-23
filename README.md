@@ -125,12 +125,13 @@ same list, a thread view, a composer that sends through the CLI, and **Go to pan
 Unnamed sessions are numbered by directory: the first unnamed session in `be-audio/` is
 `be-audio-001`, the next `be-audio-002`, and so on, using the lowest number not held or reserved.
 
-A callsign belongs to its **session**, not its process. When a session exits (or crashes), its
-callsign stays reserved for that session id for 7 days after it last ran: nobody else is given it,
-a message to it is answered "offline" instead of reaching someone else, and resuming the session
-takes it back. A reservation unused for 7 days expires and the number becomes free again. So in
-`be-audio`: start 001, 002, 003; close 002; the next new session is 004, and resuming the closed
-one makes it 002 again.
+A callsign belongs to its **session**, not its process. When a session exits (or crashes, or you
+switch away from it with `/resume`, `/new` or `/fork`), its callsign stays reserved for that
+session id for 7 days after it last ran: nobody else is given it, a message to it is answered
+"offline" instead of reaching someone else, and resuming the session — in a new process or with
+`/resume` — takes it back. A reservation unused for 7 days expires and the number becomes free
+again. So in `be-audio`: start 001, 002, 003; close 002; the next new session is 004, and resuming
+the closed one makes it 002 again.
 
 Name a session to choose its callsign: `/rename be-audio` (saved as the session title) or
 `/callsign be-audio` (callsign only, remembered for that session). If a live session already holds

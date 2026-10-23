@@ -1,6 +1,7 @@
 // Fake host: loads the extension, drives events/tools/commands from stdin JSON lines, logs every
 // UI/prompt effect. NAME labels the process; SESSION_NAME (default NAME, empty = unnamed), CWD and
-// SESSION_ID override what the host reports.
+// SESSION_ID override what the host reports. `switch` swaps the session in-process the way omp's
+// `/resume` does: a new session id and `session_switch`, with no `session_shutdown`.
 // The extension path is runtime-selected (EXT), so this import cannot be static.
 const ext = (await import(process.env.EXT!)).default;
 const handlers = new Map<string, ((e: unknown, c: unknown) => unknown)[]>();
@@ -10,6 +11,7 @@ let idle = true;
 const out = (o: unknown) => process.stdout.write(`${JSON.stringify(o)}\n`);
 const omp = process.env.HOST === "omp";
 const sessionName = process.env.SESSION_NAME ?? process.env.NAME;
+let sessionId = process.env.SESSION_ID ?? `sess-${process.env.NAME}`;
 type View = { render(width: number): string[]; handleInput?(data: string): void; dispose?(): void };
 let view: View | undefined;
 // A plain theme, so rendered lines can be asserted as text.
@@ -28,7 +30,7 @@ const ctx = {
 	cwd: process.env.CWD ?? `/tmp/${process.env.NAME}`,
 	ui: { notify: (m: string) => out({ ev: "notify", m }), setStatus: (k: string, t?: string) => out({ ev: "status", t }), custom },
 	isIdle: () => idle,
-	sessionManager: { getSessionId: () => process.env.SESSION_ID ?? `sess-${process.env.NAME}`, getHeader: () => ({ titleSource: "user" }) },
+	sessionManager: { getSessionId: () => sessionId, getHeader: () => ({ titleSource: "user" }) },
 	...(omp ? { setInterval: (f: () => void, ms: number) => setInterval(f, ms), clearTimer: (t: ReturnType<typeof setInterval>) => clearInterval(t) } : {}),
 };
 const pi = {
@@ -62,6 +64,10 @@ for await (const chunk of process.stdin) {
 		} else if (cmd.cmd === "command") {
 			await commands.get(cmd.name)!(cmd.args, ctx);
 			out({ ev: "command", id: cmd.id });
+		} else if (cmd.cmd === "switch") {
+			sessionId = cmd.sessionId;
+			await fire("session_switch", { reason: "resume" });
+			out({ ev: "switched", id: cmd.id });
 		} else if (cmd.cmd === "exit") {
 			await fire("session_shutdown", {});
 			process.exit(0);

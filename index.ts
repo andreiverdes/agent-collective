@@ -120,12 +120,15 @@ interface CollectivePi {
 let node: CollectiveNode | undefined;
 
 /**
- * Get the live node, starting one if this process has none. Every entry point re-arms,
- * so a module loaded after the session began, or a session replaced in-process, still
- * gets a node as soon as anything asks for one.
+ * Get the live node for the host's current session, starting one if there is none. Every
+ * entry point re-arms, so a module loaded after the session began still gets a node as soon
+ * as anything asks for one. omp replaces a session in-process (`/resume`, `/new`, `/fork`)
+ * without a `session_shutdown`, so a node bound to another session id is stopped here and a
+ * fresh one loads the current session's callsign and contacts.
  */
 function ensureNode(pi: CollectivePi, ctx: CollectiveContext): CollectiveNode | undefined {
-	if (node && !node.stopped) return node;
+	if (node && !node.stopped && node.hostSessionId === ctx.sessionManager.getSessionId()) return node;
+	node?.stop();
 	try {
 		const started = new CollectiveNode(pi, ctx);
 		started.start();
@@ -187,6 +190,8 @@ class CollectiveNode {
 	readonly #contacts = new Set<string>();
 	/** `names/<callsign>` claim files: one file per held callsign, created exclusively. */
 	readonly #namesDir = path.join(this.#dir, "names");
+	/** The session id as the host reported it; a different one means the session was replaced. */
+	readonly hostSessionId: string | undefined;
 	readonly #sessionId: string | undefined;
 	/** `sessions/<session-id>.json`; undefined when the host reports no usable session id. */
 	readonly #statePath: string | undefined;
@@ -213,8 +218,8 @@ class CollectiveNode {
 		this.#pi = pi;
 		this.#ctx = ctx;
 		this.#via = ctx.setInterval && ctx.clearTimer ? "omp" : "pi";
-		const sessionId = ctx.sessionManager.getSessionId();
-		this.#sessionId = sessionId && /^[\w.-]+$/u.test(sessionId) ? sessionId : undefined;
+		this.hostSessionId = ctx.sessionManager.getSessionId();
+		this.#sessionId = this.hostSessionId && /^[\w.-]+$/u.test(this.hostSessionId) ? this.hostSessionId : undefined;
 		this.#statePath = this.#sessionId ? path.join(this.#dir, "sessions", `${this.#sessionId}.json`) : undefined;
 	}
 
@@ -296,9 +301,7 @@ class CollectiveNode {
 		this.#server?.close();
 		if (this.#ownsSocket()) fs.rmSync(this.#socketPath, { force: true });
 		fs.rmSync(this.#recordPath, { force: true });
-		// The callsign stays reserved for this session: stamp the claim with the exit time, which
-		// is when the reservation clock starts.
-		this.#touchClaim();
+		this.#leaveClaim();
 		this.#ctx.ui.setStatus("collective", undefined);
 	}
 
@@ -497,10 +500,10 @@ class CollectiveNode {
 		throw new Error(`could not claim a callsign starting with "${prefix}"`);
 	}
 
-	/** True when `names/<name>` currently names this process. */
+	/** True when `names/<name>` currently names this process's running session. */
 	#holds(name: string): boolean {
 		const owner = readClaim(path.join(this.#namesDir, name));
-		return typeof owner === "object" && owner.pid === process.pid;
+		return typeof owner === "object" && owner.pid === process.pid && !owner.left;
 	}
 
 	/**
@@ -518,8 +521,8 @@ class CollectiveNode {
 			return false;
 		}
 		if (owner === "unreadable") return age < CLAIM_WRITE_GRACE_MS;
-		if (owner.pid === process.pid) return false;
-		if (exact ? claimLive(owner, this.#processStart !== undefined) : pidAlive(owner.pid)) return true;
+		if (owner.pid === process.pid && !owner.left) return false;
+		if (exact ? claimLive(owner, this.#processStart !== undefined) : !owner.left && pidAlive(owner.pid)) return true;
 		return owner.sessionId !== undefined && owner.sessionId !== this.#sessionId && age < RESERVE_MS;
 	}
 
@@ -578,6 +581,25 @@ class CollectiveNode {
 			fs.utimesSync(path.join(this.#namesDir, this.#callsign), now, now);
 		} catch {
 			// Re-claimed on the next check.
+		}
+	}
+
+	/**
+	 * The session is leaving this process (exit, or omp swapping in another session): mark the
+	 * claim `left` so it no longer counts as held by this still-running pid. It stays reserved
+	 * for this session, and the rewrite stamps the mtime the reservation clock runs from.
+	 */
+	#leaveClaim(): void {
+		const file = path.join(this.#namesDir, this.#callsign);
+		const owner = readClaim(file);
+		if (typeof owner !== "object" || owner.pid !== process.pid || owner.left) return;
+		const aside = path.join(this.#namesDir, `.left-${process.pid}-${Date.now()}`);
+		try {
+			fs.writeFileSync(aside, JSON.stringify({ ...owner, left: true }), { mode: 0o600 });
+			fs.renameSync(aside, file);
+		} catch (error) {
+			fs.rmSync(aside, { force: true });
+			this.#pi.logger?.warn(`collective: could not release callsign claim: ${String(error)}`);
 		}
 	}
 
@@ -849,8 +871,8 @@ export default function collective(pi: CollectivePi): void {
 		});
 	}
 
-	// A session replaced inside this process (`/new`, `/resume`, `/fork`, `/switch`) tears the
-	// node down with its session; the next handler or command re-arms it against the new one.
+	// The host is disposing of the session (exit, or pi tearing it down to replace it); the next
+	// handler or command re-arms a node against whatever session comes next.
 	pi.on("session_shutdown", async () => {
 		node?.stop();
 		node = undefined;

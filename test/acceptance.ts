@@ -334,6 +334,24 @@ await sleep(200);
 await spawn("old2", { HOST: "pi", SESSION_NAME: "olden", SESSION_ID: "sess-old" });
 check((await whoami("old2")) === "young-002", "/callsign survives restart, and so does its number", `${await whoami("old2")}`);
 
+// 12. omp's in-process /resume: a new session id and session_switch, no session_shutdown
+const swp = { HOST: "omp", SESSION_NAME: "", CWD: "/work/swp" };
+await spawn("sw", { ...swp, SESSION_ID: "sess-swA" });
+await command("sw", "callsign", "keepme");
+const switchTo = async (n: string, sessionId: string) => {
+	const id = ++seq;
+	cmd(n, { cmd: "switch", sessionId, id });
+	while (!procs[n]!.evs.some(e => e.ev === "switched" && e.id === id)) await sleep(20);
+};
+await switchTo("sw", "sess-swB");
+check((await whoami("sw")) === "swp-001", "switching to another session takes that session's callsign", `${await whoami("sw")}`);
+const left = await tool("alpha", "peer_send", { to: "keepme", message: "still you?" });
+check(left.startsWith("keepme is offline"), "the session switched away from is offline, not reached in its old process", left.slice(0, 60));
+await switchTo("sw", "sess-swA");
+check((await whoami("sw")) === "keepme", "/resume in the same process gets the /callsign back", `${await whoami("sw")}`);
+await spawn("sw2", { ...swp, SESSION_ID: "sess-swB" });
+check((await whoami("sw2")) === "swp-001", "a session left in a still-running process resumes elsewhere with its callsign", `${await whoami("sw2")}`);
+
 for (const { p } of Object.values(procs)) p.kill();
 fs.rmSync(home, { recursive: true, force: true });
 console.log(failures === 0 ? "ALL PASS" : `${failures} FAILED`);

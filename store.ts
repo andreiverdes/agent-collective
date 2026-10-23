@@ -134,6 +134,11 @@ export interface NameClaim {
 	/** Shown for an offline callsign, whose record is gone. */
 	cwd?: string;
 	via?: "omp" | "pi";
+	/**
+	 * The session has left its process (exit, or the host swapped in another session), which
+	 * may still be running: the claim is only a reservation now, whatever `pid` says.
+	 */
+	left?: true;
 }
 
 /** True while `pid` exists. EPERM means it exists under another user, which still counts. */
@@ -201,7 +206,7 @@ export function readClaim(file: string): NameClaim | "missing" | "unreadable" {
  * `psWorks` is false when this process could not read its own start time.
  */
 export function claimLive(owner: NameClaim, psWorks: boolean): boolean {
-	if (!pidAlive(owner.pid)) return false;
+	if (owner.left || !pidAlive(owner.pid)) return false;
 	if (owner.start === undefined || !psWorks) return true;
 	return processStart(owner.pid) === owner.start;
 }
@@ -296,7 +301,7 @@ export function listCollective(dir: string, selfPid: number = process.pid): Coll
 		if (name.startsWith(".") || listed.has(name)) continue;
 		const file = path.join(namesDir, name);
 		const owner = readClaim(file);
-		if (typeof owner !== "object" || owner.sessionId === undefined || live.has(owner.pid)) continue;
+		if (typeof owner !== "object" || owner.sessionId === undefined || (!owner.left && live.has(owner.pid))) continue;
 		let lastRanAt: number;
 		try {
 			lastRanAt = fs.statSync(file).mtimeMs;
@@ -326,7 +331,7 @@ export function resolveTarget(dir: string, callsign: string, selfPid: number = p
 	const owner = readClaim(file);
 	const record =
 		typeof owner === "object"
-			? peers.find(peer => peer.pid === owner.pid)
+			? owner.left ? undefined : peers.find(peer => peer.pid === owner.pid)
 			: owner === "missing"
 				? peers.find(peer => peer.callsign === callsign)
 				: undefined;
