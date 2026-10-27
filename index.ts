@@ -70,6 +70,8 @@ const COALESCE_MS = 400;
 
 interface CollectiveContext {
 	cwd: string;
+	/** omp only: identity of the session this extension registration serves. */
+	agent?: { kind: "main" | "sub" };
 	ui: {
 		notify(message: string, type?: "info" | "warning" | "error"): void;
 		setStatus(key: string, text: string | undefined): void;
@@ -119,6 +121,11 @@ interface CollectivePi {
 /** One collective node per process, even when several sessions load the extension. */
 let node: CollectiveNode | undefined;
 
+/** omp runs task subagents in the parent process; only the top-level session may own a node. */
+function isSubagent(ctx: CollectiveContext): boolean {
+	return ctx.agent?.kind === "sub";
+}
+
 /**
  * Get the live node for the host's current session, starting one if there is none. Every
  * entry point re-arms, so a module loaded after the session began still gets a node as soon
@@ -127,6 +134,8 @@ let node: CollectiveNode | undefined;
  * fresh one loads the current session's callsign and contacts.
  */
 function ensureNode(pi: CollectivePi, ctx: CollectiveContext): CollectiveNode | undefined {
+	// A subagent shares its parent's process, node and socket: it must neither replace nor stop them.
+	if (isSubagent(ctx)) return undefined;
 	if (node && !node.stopped && node.hostSessionId === ctx.sessionManager.getSessionId()) return node;
 	node?.stop();
 	try {
@@ -872,8 +881,10 @@ export default function collective(pi: CollectivePi): void {
 	}
 
 	// The host is disposing of the session (exit, or pi tearing it down to replace it); the next
-	// handler or command re-arms a node against whatever session comes next.
-	pi.on("session_shutdown", async () => {
+	// handler or command re-arms a node against whatever session comes next. A subagent's
+	// shutdown must not stop the node its parent owns.
+	pi.on("session_shutdown", async (_payload, ctx) => {
+		if (isSubagent(ctx)) return;
 		node?.stop();
 		node = undefined;
 	});
@@ -887,10 +898,12 @@ export default function collective(pi: CollectivePi): void {
 		const live = ensureNode(pi, ctx);
 		const { source } = event as { source?: string };
 		if (source === "extension") return;
+		if (isSubagent(ctx)) return;
 		live?.resetLineage();
 	});
 
 	pi.on("agent_start", async (_event, ctx) => {
+		if (isSubagent(ctx)) return;
 		ensureNode(pi, ctx)?.setBusy(true);
 	});
 
@@ -898,7 +911,8 @@ export default function collective(pi: CollectivePi): void {
 	 * A finished turn owes nothing to the messages it answered, and is the moment the
 	 * instance becomes idle — the only other time its record changes.
 	 */
-	pi.on("agent_end", async () => {
+	pi.on("agent_end", async (_event, ctx) => {
+		if (isSubagent(ctx)) return;
 		node?.resetLineage();
 		node?.setBusy(false);
 	});
