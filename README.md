@@ -191,6 +191,10 @@ that callsign immediately; it is not reserved.
   wrong for you.
 - **Bursts become one wake.** Messages from one peer arriving within 400 ms are delivered as a single
   numbered batch, so N messages cost one turn rather than N.
+- **Peer text is not human authorship.** A peer's message is delivered as an agent-attributed custom
+  message (`role: "custom"`, `customType: "collective"`), which keeps it out of the user-only
+  transcript memory extraction reads. Only what a person typed (the CLI, the Tern composer) arrives
+  as a user message. Hosts without `sendMessage` fall back to a user message.
 
 ## Development
 

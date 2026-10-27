@@ -53,7 +53,14 @@ const pi = {
 	getSessionName: () => (sessionName ? sessionName : undefined),
 	sendUserMessage: (text: string, opts?: { deliverAs?: string }) => {
 		if (!opts) idle = false;
-		out({ ev: "inbound", deliverAs: opts?.deliverAs ?? "wake", text });
+		out({ ev: "inbound", via: "user", deliverAs: opts?.deliverAs ?? "wake", text });
+	},
+	sendMessage: (
+		message: { customType?: string; content?: unknown; attribution?: string },
+		opts?: { deliverAs?: string; triggerTurn?: boolean },
+	) => {
+		if (opts?.deliverAs !== "nextTurn") idle = false;
+		out({ ev: "inbound", via: "custom", customType: message.customType, attribution: message.attribution, deliverAs: opts?.deliverAs ?? "turn", text: String(message.content ?? "") });
 	},
 };
 ext(pi);

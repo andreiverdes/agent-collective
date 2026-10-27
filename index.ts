@@ -12,9 +12,10 @@
  *   - **Need-to-know.** A session's contacts are the peers it has messaged or heard from.
  *     Only those are shown in its status chip, and they persist per session.
  *
- * omp and pi expose the same two tools. Inbound messages arrive through
- * `sendUserMessage`: an idle agent wakes; a busy omp agent receives an aside (no tool-batch
- * interrupt), a busy pi agent a steer (pi has no aside).
+ * omp and pi expose the same two tools. Inbound peer messages arrive as agent-attributed custom
+ * messages (`sendMessage`), so they never enter the transcript as human prompts; an idle agent
+ * wakes, a busy omp agent receives an aside (no tool-batch interrupt), a busy pi agent a steer
+ * (pi has no aside). Text a person typed (CLI, Tern) arrives as a user message instead.
  *
  * Two host quirks worth knowing before editing this file:
  *   - NEVER detach a method from the api object (`const on = pi.on`). omp's ExtensionAPI
@@ -117,6 +118,11 @@ interface CollectivePi {
 	getSessionName(): string | undefined;
 	/** omp has `"aside"` (no interrupt mid-turn); pi does not. */
 	sendUserMessage(content: string, options?: { deliverAs?: "steer" | "followUp" | "aside" }): void;
+	/** omp only: a message the host records as `role: "custom"`, not as a person's prompt. */
+	sendMessage?(
+		message: { customType: string; content: string; display?: boolean; attribution?: "user" | "agent" },
+		options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" | "aside" },
+	): void;
 	logger?: { warn(message: string): void };
 }
 
@@ -853,12 +859,26 @@ class CollectiveNode {
 			text = `[collective] message from peer \`${frame.from}\`${frame.replyTo ? " (a reply)" : ""} to you (\`${this.#callsign}\`):\n\n${context}${frame.body}\n\nReply with the \`peer_send\` tool addressed to \`${frame.from}\` if a response is useful.${budget}`;
 		}
 		this.#log({ at: Date.now(), dir: "in", peer: frame.from, hop: frame.hop, body: frame.body, human: frame.human || undefined });
-		if (wakes) {
-			this.#pi.sendUserMessage(text);
-			return "woken";
+		if (frame.human) {
+			// A person typed it (CLI, Tern block): record it as a user prompt, which is what it is.
+			if (wakes) {
+				this.#pi.sendUserMessage(text);
+				return "woken";
+			}
+			this.#pi.sendUserMessage(text, { deliverAs: this.#via === "omp" ? "aside" : "steer" });
+			return this.#via === "omp" ? "aside" : "steered";
 		}
-		this.#pi.sendUserMessage(text, { deliverAs: this.#via === "omp" ? "aside" : "steer" });
-		return this.#via === "omp" ? "aside" : "steered";
+		// A peer's text is agent-authored: a custom message keeps it out of the user-only
+		// transcript that memory extraction reads, while still prompting the turn.
+		const message = { customType: "collective", content: text, display: true, attribution: "agent" as const };
+		if (this.#pi.sendMessage) {
+			// omp's aside wakes an idle session and lands at the next step boundary on a busy one.
+			this.#pi.sendMessage(message, this.#via === "omp" ? { deliverAs: "aside" } : { deliverAs: "steer", triggerTurn: true });
+		} else {
+			// Host without custom messages (predates sendMessage): keeps the old delivery, as user text.
+			this.#pi.sendUserMessage(text, wakes ? undefined : { deliverAs: this.#via === "omp" ? "aside" : "steer" });
+		}
+		return wakes ? "woken" : this.#via === "omp" ? "aside" : "steered";
 	}
 
 	/**
