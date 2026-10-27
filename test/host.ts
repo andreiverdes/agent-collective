@@ -6,7 +6,12 @@
 // The extension path is runtime-selected (EXT), so this import cannot be static.
 const ext = (await import(process.env.EXT!)).default;
 const handlers = new Map<string, ((e: unknown, c: unknown) => unknown)[]>();
-const tools = new Map<string, { execute: (id: string, p: Record<string, unknown>) => Promise<{ content: { text: string }[] }> }>();
+const tools = new Map<
+	string,
+	{
+		execute: (id: string, p: Record<string, unknown>, s?: AbortSignal, u?: unknown, c?: unknown) => Promise<{ content: { text: string }[] }>;
+	}
+>();
 const commands = new Map<string, (args: string, c: unknown) => Promise<void>>();
 let idle = true;
 const out = (o: unknown) => process.stdout.write(`${JSON.stringify(o)}\n`);
@@ -75,9 +80,8 @@ for await (const chunk of process.stdin) {
 			await fire("agent_end", {}, subCtx);
 			await fire("session_shutdown", {}, subCtx);
 			out({ ev: "sub-ended", id: cmd.id });
-		}
-		else if (cmd.cmd === "tool") {
-			const r = await tools.get(cmd.name)!.execute("x", cmd.params);
+		} else if (cmd.cmd === "tool") {
+			const r = await tools.get(cmd.name)!.execute("x", cmd.params, undefined, undefined, cmd.sub ? subCtx : ctx);
 			out({ ev: "tool", id: cmd.id, text: r.content[0]!.text });
 		} else if (cmd.cmd === "command") {
 			await commands.get(cmd.name)!(cmd.args, ctx);

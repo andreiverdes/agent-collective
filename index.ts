@@ -110,6 +110,8 @@ interface CollectivePi {
 			toolCallId: string,
 			params: Record<string, unknown>,
 			signal?: AbortSignal,
+			onUpdate?: unknown,
+			ctx?: CollectiveContext,
 		) => Promise<ToolResult>;
 	}): void;
 	getSessionName(): string | undefined;
@@ -974,7 +976,10 @@ export default function collective(pi: CollectivePi): void {
 			},
 			additionalProperties: false,
 		},
-		execute: async (_toolCallId, params) => {
+		execute: async (_toolCallId, params, _signal, _onUpdate, ctx) => {
+			if (ctx && isSubagent(ctx)) {
+				return { content: [{ type: "text", text: "collective: peer tools are unavailable inside a task subagent; use the top-level session." }] };
+			}
 			if (!node || node.stopped) {
 				return { content: [{ type: "text", text: "The collective node is not running in this process; run /collective to start it." }] };
 			}
@@ -1014,7 +1019,10 @@ export default function collective(pi: CollectivePi): void {
 			required: ["to", "message"],
 			additionalProperties: false,
 		},
-		execute: async (_toolCallId, params) => {
+		execute: async (_toolCallId, params, _signal, _onUpdate, ctx) => {
+			if (ctx && isSubagent(ctx)) {
+				return { content: [{ type: "text", text: "collective: peer tools are unavailable inside a task subagent; use the top-level session." }] };
+			}
 			if (!node || node.stopped) {
 				return { content: [{ type: "text", text: "The collective node is not running in this process; run /collective to start it." }] };
 			}
