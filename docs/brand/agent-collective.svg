@@ -1,0 +1,193 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1254" height="1254" viewBox="0 0 1254 1254" role="img" aria-labelledby="logo-title logo-description">
+  <title id="logo-title">Agent Collective</title>
+  <desc id="logo-description">An isometric cube of lime-green and charcoal circuit panels above the angular AGENT COLLECTIVE wordmark in metallic silver.</desc>
+  <defs>
+    <linearGradient id="lime-bright" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#b2ff57" />
+      <stop offset="52%" stop-color="#95fa31" />
+      <stop offset="100%" stop-color="#80e820" />
+    </linearGradient>
+    <linearGradient id="lime-main" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a2ff41" />
+      <stop offset="100%" stop-color="#87ed28" />
+    </linearGradient>
+    <linearGradient id="lime-deep" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#96fa34" />
+      <stop offset="100%" stop-color="#75dc1f" />
+    </linearGradient>
+    <linearGradient id="charcoal" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#343d40" />
+      <stop offset="55%" stop-color="#21292c" />
+      <stop offset="100%" stop-color="#151d20" />
+    </linearGradient>
+    <linearGradient id="charcoal-light" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#475155" />
+      <stop offset="100%" stop-color="#283135" />
+    </linearGradient>
+    <linearGradient id="metal" x1="0%" y1="0%" x2="30%" y2="100%">
+      <stop offset="0%" stop-color="#f1f3f4" />
+      <stop offset="35%" stop-color="#cdd2d7" />
+      <stop offset="58%" stop-color="#e6e9ec" />
+      <stop offset="100%" stop-color="#afb8bf" />
+    </linearGradient>
+    <linearGradient id="circuit-lime" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c4ff7a" />
+      <stop offset="100%" stop-color="#8af323" />
+    </linearGradient>
+    <radialGradient id="node-lime" cx="38%" cy="30%" r="75%">
+      <stop offset="0%" stop-color="#f2ffcf" />
+      <stop offset="28%" stop-color="#d3ff8d" />
+      <stop offset="60%" stop-color="#9fff3b" />
+      <stop offset="100%" stop-color="#6bd41c" />
+    </radialGradient>
+    <clipPath id="clip-panel-02">
+      <path d="M562.5,300.0 L657.0,243.5 L657.0,241.5 L636.5,229.0 L712.0,183.5 L735.0,195.5 L798.5,234.0 L645.0,325.5 L632.0,317.5 L611.0,330.5 L563.0,301.5 Z" />
+    </clipPath>
+    <clipPath id="clip-panel-08">
+      <path d="M301.5,327.0 L303.0,325.5 L385.5,375.0 L379.5,380.0 L379.0,470.5 L358.5,459.0 L358.5,432.0 L356.0,429.5 L349.0,425.5 L347.5,426.0 L347.5,451.0 L346.0,451.5 L301.5,424.0 Z" />
+    </clipPath>
+    <clipPath id="clip-panel-14">
+      <path d="M485.5,446.0 L496.0,438.5 L500.0,442.5 L510.0,447.5 L627.5,523.0 L627.0,650.5 L576.5,620.0 L576.5,550.0 L487.0,494.5 L485.5,577.0 Z" />
+    </clipPath>
+    <clipPath id="clip-panel-16">
+      <path d="M641.5,525.0 L748.0,461.5 L753.5,460.0 L753.5,512.0 L646.0,576.5 L641.5,578.0 Z" />
+    </clipPath>
+    <clipPath id="clip-panel-19">
+      <path d="M383.5,519.0 L401.5,529.0 L401.5,599.0 L447.5,628.0 L447.5,660.0 L446.0,661.5 L383.5,623.0 Z" />
+    </clipPath>
+    <clipPath id="clip-panel-23">
+      <path d="M726.5,637.0 L840.5,570.0 L840.5,680.0 L791.5,710.0 L791.5,802.0 L762.0,819.5 L761.5,674.0 L756.0,675.5 L730.0,691.5 L726.5,692.0 Z" />
+    </clipPath>
+    <clipPath id="clip-panel-28">
+      <path d="M506.5,660.0 L509.0,657.5 L579.5,700.0 L579.0,868.5 L542.5,847.0 L542.5,787.0 L507.5,766.0 Z" />
+    </clipPath>
+  </defs>
+  <g id="black-backing" fill="#000000" stroke="#000000" stroke-width="18" stroke-linejoin="round">
+    <path id="cube-backing" d="M627 132.5 L952.5 326 L952.5 708 L627 897.5 L302 708 L302 326 Z" />
+  </g>
+  <g id="emblem" fill-rule="evenodd" shape-rendering="geometricPrecision">
+    <g id="panels">
+      <path id="panel-01" fill="url(#lime-main)" d="M551.5,178.0 L627.0,132.5 L698.5,175.0 L698.0,176.5 L623.0,220.5 L621.0,220.5 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-02" fill="url(#charcoal)" d="M562.5,300.0 L657.0,243.5 L657.0,241.5 L636.5,229.0 L712.0,183.5 L735.0,195.5 L798.5,234.0 L645.0,325.5 L632.0,317.5 L611.0,330.5 L563.0,301.5 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-03" fill="url(#lime-bright)" d="M436.5,245.0 L521.0,194.5 L567.5,223.0 L484.0,273.5 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-04" fill="url(#lime-main)" d="M794.5,296.0 L842.0,266.5 L851.0,262.5 L939.0,314.5 L940.5,317.0 L899.0,342.5 L883.0,350.5 L806.0,304.5 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-05" fill="url(#lime-main)" d="M313.5,316.0 L391.0,269.5 L396.0,270.5 L443.5,300.0 L365.0,347.5 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-06" fill="url(#lime-bright)" d="M724.5,381.0 L760.5,359.0 L760.5,314.0 L762.0,311.5 L777.0,302.5 L891.5,372.0 L800.0,426.5 L796.0,425.5 L761.0,404.5 L728.0,384.5 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-07" fill="url(#lime-main)" d="M381.5,355.0 L459.0,308.5 L550.0,363.5 L567.0,354.5 L592.0,369.5 L595.5,373.0 L502.0,428.5 L385.0,358.5 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-08" fill="url(#charcoal-light)" d="M301.5,327.0 L303.0,325.5 L385.5,375.0 L379.5,380.0 L379.0,470.5 L358.5,459.0 L358.5,432.0 L356.0,429.5 L349.0,425.5 L347.5,426.0 L347.5,451.0 L346.0,451.5 L301.5,424.0 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-09" fill="url(#charcoal)" d="M897.5,359.0 L950.0,327.5 L952.5,328.0 L952.5,429.0 L901.0,460.5 L898.5,460.0 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-10" fill="url(#lime-bright)" d="M517.5,437.0 L610.0,381.5 L631.0,393.5 L641.0,387.5 L681.5,412.0 L681.0,413.5 L579.0,474.5 L576.0,474.5 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-11" fill="url(#lime-bright)" d="M391.5,389.0 L399.0,383.5 L401.0,383.5 L452.5,414.0 L443.5,420.0 L443.0,508.5 L391.5,478.0 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-12" fill="url(#lime-main)" d="M800.5,441.0 L885.0,390.5 L886.5,392.0 L886.5,435.0 L858.5,452.0 L858.5,490.0 L850.0,496.5 L806.0,522.5 L800.5,524.0 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-13" fill="url(#lime-main)" d="M589.5,482.0 L693.0,419.5 L743.5,449.0 L740.0,452.5 L638.0,512.5 L593.0,485.5 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-14" fill="url(#charcoal)" d="M485.5,446.0 L496.0,438.5 L500.0,442.5 L510.0,447.5 L627.5,523.0 L627.0,650.5 L576.5,620.0 L576.5,550.0 L487.0,494.5 L485.5,577.0 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-15" fill="url(#metal)" d="M869.5,459.0 L882.0,451.5 L885.5,451.0 L885.5,472.0 L871.0,481.5 L869.5,481.0 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-16" fill="url(#charcoal-light)" d="M641.5,525.0 L748.0,461.5 L753.5,460.0 L753.5,512.0 L646.0,576.5 L641.5,578.0 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-17" fill="url(#metal)" d="M301.5,472.0 L303.0,470.5 L359.5,505.0 L359.0,542.5 L347.0,536.5 L301.5,508.0 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-18" fill="url(#charcoal)" d="M899.5,527.0 L900.5,511.0 L902.0,509.5 L951.0,480.5 L952.5,481.0 L952.5,566.0 L901.0,597.5 L899.5,596.0 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-19" fill="url(#charcoal)" d="M383.5,519.0 L401.5,529.0 L401.5,599.0 L447.5,628.0 L447.5,660.0 L446.0,661.5 L383.5,623.0 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-20" fill="url(#lime-main)" d="M506.5,523.0 L508.0,521.5 L564.5,556.0 L564.0,639.5 L506.5,606.0 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-21" fill="url(#lime-main)" d="M302.5,525.0 L304.0,524.5 L311.0,528.5 L369.5,565.0 L369.0,698.5 L339.5,681.0 L339.5,623.0 L302.5,600.0 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-22" fill="url(#lime-main)" d="M699.5,559.0 L752.0,527.5 L753.5,529.0 L753.5,597.0 L750.0,600.5 L722.0,616.5 L720.5,616.0 L720.0,593.5 L704.0,603.5 L700.0,604.5 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-23" fill="url(#charcoal-light)" d="M726.5,637.0 L840.5,570.0 L840.5,680.0 L791.5,710.0 L791.5,802.0 L762.0,819.5 L761.5,674.0 L756.0,675.5 L730.0,691.5 L726.5,692.0 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-24" fill="url(#lime-main)" d="M641.5,593.0 L674.0,573.5 L675.5,575.0 L675.5,619.0 L672.0,622.5 L643.0,639.5 L641.5,639.0 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-25" fill="url(#lime-main)" d="M887.5,622.0 L947.0,586.5 L952.5,585.0 L952.5,650.0 L914.5,673.0 L914.5,730.0 L889.0,745.5 L887.5,745.0 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-26" fill="url(#charcoal)" d="M301.5,616.0 L303.0,614.5 L305.0,615.5 L328.5,630.0 L328.5,688.0 L369.5,713.0 L369.0,745.5 L301.5,705.0 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-27" fill="url(#lime-main)" d="M633.5,660.0 L700.0,620.5 L705.5,619.0 L705.5,720.0 L635.0,762.5 L633.5,762.0 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-28" fill="url(#charcoal)" d="M506.5,660.0 L509.0,657.5 L579.5,700.0 L579.0,868.5 L542.5,847.0 L542.5,787.0 L507.5,766.0 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-29" fill="url(#metal)" d="M925.5,680.0 L949.0,665.5 L952.5,665.0 L952.5,707.0 L927.0,722.5 L925.5,722.0 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-30" fill="url(#lime-bright)" d="M408.5,684.0 L410.0,683.5 L417.0,687.5 L462.5,715.0 L461.0,798.5 L457.0,797.5 L426.0,779.5 L408.5,768.0 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-31" fill="url(#lime-main)" d="M805.5,739.0 L875.5,698.0 L875.5,752.0 L810.0,791.5 L805.5,793.0 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-32" fill="url(#lime-main)" d="M473.5,799.0 L475.0,759.5 L529.0,790.5 L530.5,828.0 L529.5,839.0 L476.0,808.5 L473.5,806.0 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+      <path id="panel-33" fill="url(#lime-bright)" d="M591.5,788.0 L593.0,786.5 L630.0,809.5 L634.0,810.5 L704.0,768.5 L704.5,819.0 L720.0,810.5 L721.5,811.0 L721.5,842.0 L629.0,897.5 L626.0,897.5 L591.5,876.0 Z" stroke="#11181a" stroke-width="1.3" stroke-linejoin="round" />
+    </g>
+    <g id="circuits" fill="url(#circuit-lime)" stroke="#11181a" stroke-width="2.5" stroke-linejoin="round">
+      <path id="circuit-01" d="M408.5,262.0 L416.0,256.5 L425.0,252.5 L479.0,285.5 L483.0,287.5 L487.0,286.5 L579.5,231.0 L571.0,224.5 L522.5,196.0 L524.0,193.5 L538.0,185.5 L552.0,192.5 L612.5,230.0 L609.0,233.5 L485.0,307.5 Z" />
+      <path id="circuit-02" d="M691.5,368.0 L732.5,343.0 L732.5,294.0 L734.0,292.5 L816.0,244.5 L822.0,246.5 L832.5,254.0 L749.5,303.0 L749.5,352.0 L748.0,353.5 L708.0,377.5 L702.0,375.5 Z" />
+      <path id="circuit-03" d="M515.5,305.0 L527.0,297.5 L531.0,296.5 L597.5,337.0 L582.0,346.5 L522.0,310.5 Z" />
+      <path id="circuit-04" d="M589.5,355.0 L632.0,329.5 L674.5,355.0 L633.0,380.5 L628.0,379.5 L593.0,358.5 Z" fill="url(#node-lime)" />
+      <path id="circuit-05" d="M656.5,378.0 L666.0,371.5 L673.0,369.5 L779.0,433.5 L782.5,437.0 L783.0,550.5 L839.0,517.5 L839.5,535.0 L798.0,560.5 L767.0,577.5 L766.5,445.0 L683.0,395.5 Z" />
+      <path id="circuit-06" d="M470.5,436.0 L482.0,430.5 L495.5,439.0 L485.5,446.0 L485.0,577.5 L470.5,570.0 Z" />
+      <path id="circuit-07" d="M302.5,439.0 L428.5,514.0 L429.5,572.0 L449.5,585.0 L448.0,601.5 L413.5,581.0 L413.5,524.0 L303.0,457.5 Z" />
+      <path id="circuit-08" d="M894.5,485.0 L896.0,478.5 L945.0,449.5 L951.5,447.0 L951.0,465.5 L897.0,497.5 L894.5,497.0 Z" />
+      <path id="circuit-09" d="M849.5,504.0 L870.0,490.5 L885.5,483.0 L885.5,527.0 L851.0,547.5 L849.5,547.0 Z" fill="url(#node-lime)" />
+      <path id="circuit-10" d="M859.5,554.0 L870.0,547.5 L875.5,546.0 L875.5,697.0 L862.0,706.5 L859.5,706.0 Z" />
+      <path id="circuit-11" d="M458.5,576.0 L464.0,577.5 L495.5,597.0 L495.0,643.5 L458.5,622.0 Z" fill="url(#node-lime)" />
+      <path id="circuit-12" d="M507.5,622.0 L513.0,623.5 L607.5,681.0 L608.0,762.5 L634.0,777.5 L703.0,736.5 L704.5,737.0 L703.5,754.0 L633.0,796.5 L593.0,771.5 L591.5,770.0 L591.5,690.0 L509.0,640.5 L507.5,639.0 Z" />
+      <path id="circuit-13" d="M382.5,649.0 L388.0,650.5 L470.0,700.5 L470.5,641.0 L472.0,640.5 L485.0,648.5 L485.5,728.0 L484.0,728.5 L462.0,714.5 L460.0,714.5 L398.0,676.5 L397.5,761.0 L396.0,761.5 L384.0,754.5 L382.5,753.0 Z" />
+      <path id="circuit-14" d="M714.5,717.0 L745.0,698.5 L750.5,697.0 L750.5,743.0 L716.0,764.5 L714.5,764.0 Z" fill="url(#node-lime)" />
+      <path id="circuit-15" d="M732.5,766.0 L741.0,760.5 L746.5,759.0 L746.5,827.0 L734.0,835.5 L732.5,835.0 Z" />
+    </g>
+    <g id="metallic-edge-accents" fill="none" stroke="#d3dade" stroke-width="3.2" stroke-linecap="butt" opacity=".86">
+      <path d="M775.22,243.81 L658.56,313.35" clip-path="url(#clip-panel-02)" />
+      <path d="M305.34,415.56 L305.34,341.84" clip-path="url(#clip-panel-08)" />
+      <path d="M520.68,460.21 L609.98,517.59" clip-path="url(#clip-panel-14)" />
+      <path d="M654.78,522.35 L735.72,474.09" clip-path="url(#clip-panel-16)" />
+      <path d="M387.07,614.02 L387.07,534.98" clip-path="url(#clip-panel-19)" />
+      <path d="M739.59,633.93 L826.23,583.01" clip-path="url(#clip-panel-23)" />
+      <path d="M575.36,717.33 L574.98,845.39" clip-path="url(#clip-panel-28)" />
+    </g>
+  </g>
+  <g id="wordmark" transform="translate(627 960) scale(0.8)" fill-rule="evenodd" shape-rendering="geometricPrecision">
+    <g id="letter-outer-edge" fill="#080d0f" stroke="#687278" stroke-width="13" stroke-linejoin="miter" stroke-miterlimit="3">
+      <path id="letter-outer-edge-agent-01-A" d="M309.5,1055.0 L355.0,992.5 L378.0,992.5 L423.5,1056.0 L400.0,1056.5 L389.0,1041.5 L355.0,1041.5 L365.0,1029.5 L381.5,1029.0 L366.0,1008.5 L332.0,1056.5 L310.0,1056.5 Z" transform="translate(-635 -992)" />
+      <path id="letter-outer-edge-agent-02-G" d="M466.5,1003.0 L478.0,992.5 L553.0,991.5 L553.5,993.0 L538.0,1008.5 L488.0,1008.5 L487.5,1040.0 L534.0,1040.5 L534.0,1030.5 L513.0,1030.5 L514.0,1028.5 L523.0,1020.5 L555.0,1020.5 L555.5,1056.0 L478.0,1056.5 L466.5,1045.0 Z" transform="translate(-635 -992)" />
+      <path id="letter-outer-edge-agent-03-E" d="M605.5,993.0 L688.0,992.5 L688.5,994.0 L681.0,1007.5 L628.0,1007.5 L626.5,1009.0 L627.0,1017.5 L673.0,1017.5 L673.5,1019.0 L664.0,1030.5 L628.0,1030.5 L626.5,1032.0 L626.5,1040.0 L681.0,1040.5 L690.5,1056.0 L606.0,1056.5 Z" transform="translate(-635 -992)" />
+      <path id="letter-outer-edge-agent-04-N" d="M736.5,993.0 L755.0,992.5 L797.0,1030.5 L797.5,992.0 L817.0,991.5 L818.5,993.0 L818.5,1056.0 L798.0,1056.5 L758.0,1019.5 L757.5,1055.0 L756.0,1056.5 L737.0,1056.5 Z" transform="translate(-635 -992)" />
+      <path id="letter-outer-edge-agent-05-T" d="M864.5,993.0 L866.0,991.5 L959.5,993.0 L945.0,1008.5 L923.0,1007.5 L921.5,1009.0 L921.0,1056.5 L900.5,1056.0 L900.5,1009.0 L877.0,1008.5 Z" transform="translate(-635 -992)" />
+      <path id="letter-outer-edge-collective-06-C" d="M46.5,1107.0 L64.0,1088.5 L166.0,1088.5 L167.5,1092.0 L152.0,1113.5 L79.0,1113.5 L76.5,1116.0 L76.5,1169.0 L79.0,1171.5 L166.0,1170.5 L167.5,1172.0 L167.5,1179.0 L153.0,1196.5 L64.0,1196.5 L46.5,1179.0 Z" transform="translate(-682.5 -992)" />
+      <path id="letter-outer-edge-collective-07-O" d="M176.5,1107.0 L195.0,1088.5 L287.0,1088.5 L305.5,1108.0 L304.5,1180.0 L288.0,1196.5 L193.0,1196.5 L176.5,1180.0 L176.5,1155.0 L205.0,1126.5 L206.5,1127.0 L206.5,1170.0 L208.0,1171.5 L273.0,1171.5 L274.5,1170.0 L274.5,1116.0 L273.0,1114.5 L208.0,1114.5 L195.0,1128.5 L177.0,1144.5 Z" transform="translate(-673.5 -992)" />
+      <path id="letter-outer-edge-collective-08-L" d="M320.5,1090.0 L350.5,1090.0 L351.0,1171.5 L411.0,1171.5 L428.5,1196.0 L321.0,1196.5 Z" transform="translate(-670.5 -992)" />
+      <path id="letter-outer-edge-collective-09-L" d="M438.5,1090.0 L440.0,1088.5 L468.5,1089.0 L469.0,1171.5 L529.0,1171.5 L546.5,1196.0 L439.0,1196.5 Z" transform="translate(-662.5 -992)" />
+      <path id="letter-outer-edge-collective-10-E" d="M557.5,1090.0 L559.0,1088.5 L665.0,1089.5 L666.5,1094.0 L651.0,1114.5 L587.5,1115.0 L588.0,1130.5 L642.5,1131.0 L642.5,1134.0 L628.0,1154.5 L588.0,1154.5 L587.5,1171.0 L648.0,1171.5 L665.5,1194.0 L665.5,1196.0 L558.0,1196.5 Z" transform="translate(-655.5 -992)" />
+      <path id="letter-outer-edge-collective-11-C" d="M670.5,1107.0 L688.0,1088.5 L783.0,1088.5 L784.5,1093.0 L768.0,1114.5 L702.0,1114.5 L700.5,1116.0 L700.5,1170.0 L702.0,1171.5 L773.0,1171.5 L789.5,1194.0 L789.5,1196.0 L688.0,1197.5 L670.5,1180.0 Z" transform="translate(-641.5 -992)" />
+      <path id="letter-outer-edge-collective-12-T" d="M783.5,1114.0 L799.5,1090.0 L802.0,1088.5 L899.0,1088.5 L901.5,1091.0 L901.5,1093.0 L886.0,1114.5 L852.5,1115.0 L853.5,1181.0 L852.0,1196.5 L823.5,1196.0 L823.5,1115.0 Z" transform="translate(-617.5 -992)" />
+      <path id="letter-outer-edge-collective-13-I" d="M911.5,1090.0 L913.0,1088.5 L941.0,1088.5 L942.5,1090.0 L941.0,1196.5 L913.0,1197.5 L911.5,1196.0 Z" transform="translate(-609.5 -992)" />
+      <path id="letter-outer-edge-collective-14-V" d="M1014.5,1195.0 L1078.5,1091.0 L1081.0,1088.5 L1111.0,1089.5 L1046.5,1196.0 L1015.0,1196.5 Z M954.5,1090.0 L995.0,1089.5 L1025.5,1143.0 L1031.5,1157.0 L1010.0,1190.5 L961.5,1105.0 Z" transform="translate(-603.5 -992)" />
+      <path id="letter-outer-edge-collective-15-E" d="M1111.5,1090.0 L1201.0,1088.5 L1218.5,1111.0 L1217.0,1114.5 L1141.5,1115.0 L1142.0,1130.5 L1204.5,1131.0 L1204.5,1134.0 L1190.0,1154.5 L1142.0,1154.5 L1141.5,1171.0 L1203.0,1171.5 L1220.5,1196.0 L1112.0,1196.5 Z" transform="translate(-585.5 -992)" />
+    </g>
+    <g id="letter-black-contours" fill="#030607" stroke="#030607" stroke-width="10.5" stroke-linejoin="miter" stroke-miterlimit="3">
+      <path id="letter-black-contours-agent-01-A" d="M309.5,1055.0 L355.0,992.5 L378.0,992.5 L423.5,1056.0 L400.0,1056.5 L389.0,1041.5 L355.0,1041.5 L365.0,1029.5 L381.5,1029.0 L366.0,1008.5 L332.0,1056.5 L310.0,1056.5 Z" transform="translate(-635 -992)" />
+      <path id="letter-black-contours-agent-02-G" d="M466.5,1003.0 L478.0,992.5 L553.0,991.5 L553.5,993.0 L538.0,1008.5 L488.0,1008.5 L487.5,1040.0 L534.0,1040.5 L534.0,1030.5 L513.0,1030.5 L514.0,1028.5 L523.0,1020.5 L555.0,1020.5 L555.5,1056.0 L478.0,1056.5 L466.5,1045.0 Z" transform="translate(-635 -992)" />
+      <path id="letter-black-contours-agent-03-E" d="M605.5,993.0 L688.0,992.5 L688.5,994.0 L681.0,1007.5 L628.0,1007.5 L626.5,1009.0 L627.0,1017.5 L673.0,1017.5 L673.5,1019.0 L664.0,1030.5 L628.0,1030.5 L626.5,1032.0 L626.5,1040.0 L681.0,1040.5 L690.5,1056.0 L606.0,1056.5 Z" transform="translate(-635 -992)" />
+      <path id="letter-black-contours-agent-04-N" d="M736.5,993.0 L755.0,992.5 L797.0,1030.5 L797.5,992.0 L817.0,991.5 L818.5,993.0 L818.5,1056.0 L798.0,1056.5 L758.0,1019.5 L757.5,1055.0 L756.0,1056.5 L737.0,1056.5 Z" transform="translate(-635 -992)" />
+      <path id="letter-black-contours-agent-05-T" d="M864.5,993.0 L866.0,991.5 L959.5,993.0 L945.0,1008.5 L923.0,1007.5 L921.5,1009.0 L921.0,1056.5 L900.5,1056.0 L900.5,1009.0 L877.0,1008.5 Z" transform="translate(-635 -992)" />
+      <path id="letter-black-contours-collective-06-C" d="M46.5,1107.0 L64.0,1088.5 L166.0,1088.5 L167.5,1092.0 L152.0,1113.5 L79.0,1113.5 L76.5,1116.0 L76.5,1169.0 L79.0,1171.5 L166.0,1170.5 L167.5,1172.0 L167.5,1179.0 L153.0,1196.5 L64.0,1196.5 L46.5,1179.0 Z" transform="translate(-682.5 -992)" />
+      <path id="letter-black-contours-collective-07-O" d="M176.5,1107.0 L195.0,1088.5 L287.0,1088.5 L305.5,1108.0 L304.5,1180.0 L288.0,1196.5 L193.0,1196.5 L176.5,1180.0 L176.5,1155.0 L205.0,1126.5 L206.5,1127.0 L206.5,1170.0 L208.0,1171.5 L273.0,1171.5 L274.5,1170.0 L274.5,1116.0 L273.0,1114.5 L208.0,1114.5 L195.0,1128.5 L177.0,1144.5 Z" transform="translate(-673.5 -992)" />
+      <path id="letter-black-contours-collective-08-L" d="M320.5,1090.0 L350.5,1090.0 L351.0,1171.5 L411.0,1171.5 L428.5,1196.0 L321.0,1196.5 Z" transform="translate(-670.5 -992)" />
+      <path id="letter-black-contours-collective-09-L" d="M438.5,1090.0 L440.0,1088.5 L468.5,1089.0 L469.0,1171.5 L529.0,1171.5 L546.5,1196.0 L439.0,1196.5 Z" transform="translate(-662.5 -992)" />
+      <path id="letter-black-contours-collective-10-E" d="M557.5,1090.0 L559.0,1088.5 L665.0,1089.5 L666.5,1094.0 L651.0,1114.5 L587.5,1115.0 L588.0,1130.5 L642.5,1131.0 L642.5,1134.0 L628.0,1154.5 L588.0,1154.5 L587.5,1171.0 L648.0,1171.5 L665.5,1194.0 L665.5,1196.0 L558.0,1196.5 Z" transform="translate(-655.5 -992)" />
+      <path id="letter-black-contours-collective-11-C" d="M670.5,1107.0 L688.0,1088.5 L783.0,1088.5 L784.5,1093.0 L768.0,1114.5 L702.0,1114.5 L700.5,1116.0 L700.5,1170.0 L702.0,1171.5 L773.0,1171.5 L789.5,1194.0 L789.5,1196.0 L688.0,1197.5 L670.5,1180.0 Z" transform="translate(-641.5 -992)" />
+      <path id="letter-black-contours-collective-12-T" d="M783.5,1114.0 L799.5,1090.0 L802.0,1088.5 L899.0,1088.5 L901.5,1091.0 L901.5,1093.0 L886.0,1114.5 L852.5,1115.0 L853.5,1181.0 L852.0,1196.5 L823.5,1196.0 L823.5,1115.0 Z" transform="translate(-617.5 -992)" />
+      <path id="letter-black-contours-collective-13-I" d="M911.5,1090.0 L913.0,1088.5 L941.0,1088.5 L942.5,1090.0 L941.0,1196.5 L913.0,1197.5 L911.5,1196.0 Z" transform="translate(-609.5 -992)" />
+      <path id="letter-black-contours-collective-14-V" d="M1014.5,1195.0 L1078.5,1091.0 L1081.0,1088.5 L1111.0,1089.5 L1046.5,1196.0 L1015.0,1196.5 Z M954.5,1090.0 L995.0,1089.5 L1025.5,1143.0 L1031.5,1157.0 L1010.0,1190.5 L961.5,1105.0 Z" transform="translate(-603.5 -992)" />
+      <path id="letter-black-contours-collective-15-E" d="M1111.5,1090.0 L1201.0,1088.5 L1218.5,1111.0 L1217.0,1114.5 L1141.5,1115.0 L1142.0,1130.5 L1204.5,1131.0 L1204.5,1134.0 L1190.0,1154.5 L1142.0,1154.5 L1141.5,1171.0 L1203.0,1171.5 L1220.5,1196.0 L1112.0,1196.5 Z" transform="translate(-585.5 -992)" />
+    </g>
+    <g id="letter-faces" fill="url(#metal)" stroke="#edf0f2" stroke-width="1.1" stroke-linejoin="miter">
+      <path id="letter-faces-agent-01-A" d="M309.5,1055.0 L355.0,992.5 L378.0,992.5 L423.5,1056.0 L400.0,1056.5 L389.0,1041.5 L355.0,1041.5 L365.0,1029.5 L381.5,1029.0 L366.0,1008.5 L332.0,1056.5 L310.0,1056.5 Z" transform="translate(-635 -992)" />
+      <path id="letter-faces-agent-02-G" d="M466.5,1003.0 L478.0,992.5 L553.0,991.5 L553.5,993.0 L538.0,1008.5 L488.0,1008.5 L487.5,1040.0 L534.0,1040.5 L534.0,1030.5 L513.0,1030.5 L514.0,1028.5 L523.0,1020.5 L555.0,1020.5 L555.5,1056.0 L478.0,1056.5 L466.5,1045.0 Z" transform="translate(-635 -992)" />
+      <path id="letter-faces-agent-03-E" d="M605.5,993.0 L688.0,992.5 L688.5,994.0 L681.0,1007.5 L628.0,1007.5 L626.5,1009.0 L627.0,1017.5 L673.0,1017.5 L673.5,1019.0 L664.0,1030.5 L628.0,1030.5 L626.5,1032.0 L626.5,1040.0 L681.0,1040.5 L690.5,1056.0 L606.0,1056.5 Z" transform="translate(-635 -992)" />
+      <path id="letter-faces-agent-04-N" d="M736.5,993.0 L755.0,992.5 L797.0,1030.5 L797.5,992.0 L817.0,991.5 L818.5,993.0 L818.5,1056.0 L798.0,1056.5 L758.0,1019.5 L757.5,1055.0 L756.0,1056.5 L737.0,1056.5 Z" transform="translate(-635 -992)" />
+      <path id="letter-faces-agent-05-T" d="M864.5,993.0 L866.0,991.5 L959.5,993.0 L945.0,1008.5 L923.0,1007.5 L921.5,1009.0 L921.0,1056.5 L900.5,1056.0 L900.5,1009.0 L877.0,1008.5 Z" transform="translate(-635 -992)" />
+      <path id="letter-faces-collective-06-C" d="M46.5,1107.0 L64.0,1088.5 L166.0,1088.5 L167.5,1092.0 L152.0,1113.5 L79.0,1113.5 L76.5,1116.0 L76.5,1169.0 L79.0,1171.5 L166.0,1170.5 L167.5,1172.0 L167.5,1179.0 L153.0,1196.5 L64.0,1196.5 L46.5,1179.0 Z" transform="translate(-682.5 -992)" />
+      <path id="letter-faces-collective-07-O" d="M176.5,1107.0 L195.0,1088.5 L287.0,1088.5 L305.5,1108.0 L304.5,1180.0 L288.0,1196.5 L193.0,1196.5 L176.5,1180.0 L176.5,1155.0 L205.0,1126.5 L206.5,1127.0 L206.5,1170.0 L208.0,1171.5 L273.0,1171.5 L274.5,1170.0 L274.5,1116.0 L273.0,1114.5 L208.0,1114.5 L195.0,1128.5 L177.0,1144.5 Z" transform="translate(-673.5 -992)" />
+      <path id="letter-faces-collective-08-L" d="M320.5,1090.0 L350.5,1090.0 L351.0,1171.5 L411.0,1171.5 L428.5,1196.0 L321.0,1196.5 Z" transform="translate(-670.5 -992)" />
+      <path id="letter-faces-collective-09-L" d="M438.5,1090.0 L440.0,1088.5 L468.5,1089.0 L469.0,1171.5 L529.0,1171.5 L546.5,1196.0 L439.0,1196.5 Z" transform="translate(-662.5 -992)" />
+      <path id="letter-faces-collective-10-E" d="M557.5,1090.0 L559.0,1088.5 L665.0,1089.5 L666.5,1094.0 L651.0,1114.5 L587.5,1115.0 L588.0,1130.5 L642.5,1131.0 L642.5,1134.0 L628.0,1154.5 L588.0,1154.5 L587.5,1171.0 L648.0,1171.5 L665.5,1194.0 L665.5,1196.0 L558.0,1196.5 Z" transform="translate(-655.5 -992)" />
+      <path id="letter-faces-collective-11-C" d="M670.5,1107.0 L688.0,1088.5 L783.0,1088.5 L784.5,1093.0 L768.0,1114.5 L702.0,1114.5 L700.5,1116.0 L700.5,1170.0 L702.0,1171.5 L773.0,1171.5 L789.5,1194.0 L789.5,1196.0 L688.0,1197.5 L670.5,1180.0 Z" transform="translate(-641.5 -992)" />
+      <path id="letter-faces-collective-12-T" d="M783.5,1114.0 L799.5,1090.0 L802.0,1088.5 L899.0,1088.5 L901.5,1091.0 L901.5,1093.0 L886.0,1114.5 L852.5,1115.0 L853.5,1181.0 L852.0,1196.5 L823.5,1196.0 L823.5,1115.0 Z" transform="translate(-617.5 -992)" />
+      <path id="letter-faces-collective-13-I" d="M911.5,1090.0 L913.0,1088.5 L941.0,1088.5 L942.5,1090.0 L941.0,1196.5 L913.0,1197.5 L911.5,1196.0 Z" transform="translate(-609.5 -992)" />
+      <path id="letter-faces-collective-14-V" d="M1014.5,1195.0 L1078.5,1091.0 L1081.0,1088.5 L1111.0,1089.5 L1046.5,1196.0 L1015.0,1196.5 Z M954.5,1090.0 L995.0,1089.5 L1025.5,1143.0 L1031.5,1157.0 L1010.0,1190.5 L961.5,1105.0 Z" transform="translate(-603.5 -992)" />
+      <path id="letter-faces-collective-15-E" d="M1111.5,1090.0 L1201.0,1088.5 L1218.5,1111.0 L1217.0,1114.5 L1141.5,1115.0 L1142.0,1130.5 L1204.5,1131.0 L1204.5,1134.0 L1190.0,1154.5 L1142.0,1154.5 L1141.5,1171.0 L1203.0,1171.5 L1220.5,1196.0 L1112.0,1196.5 Z" transform="translate(-585.5 -992)" />
+    </g>
+    <g id="wordmark-bar-contours" fill="#060b0d" stroke="#060b0d" stroke-width="13" stroke-linejoin="miter" transform="translate(-635 -992)">
+      <path d="M119.5,1030.0 L285.5,1030.0 L275.0,1041.5 L132.0,1041.5 Z" />
+      <path d="M982.5,1030.0 L1148.5,1030.0 L1136.0,1041.5 L993.0,1041.5 Z" />
+    </g>
+    <g id="wordmark-bar-faces" fill="url(#lime-bright)" stroke="#d8ffad" stroke-width="1" transform="translate(-635 -992)">
+      <path d="M119.5,1030.0 L285.5,1030.0 L275.0,1041.5 L132.0,1041.5 Z" />
+      <path d="M982.5,1030.0 L1148.5,1030.0 L1136.0,1041.5 L993.0,1041.5 Z" />
+    </g>
+  </g>
+</svg>

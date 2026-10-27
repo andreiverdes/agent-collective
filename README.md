@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/brand/agent-collective.svg" alt="Agent Collective" width="320">
+</p>
+
 # agent-collective
 
 Peer messaging between [omp](https://www.npmjs.com/package/@oh-my-pi/pi-coding-agent) and
