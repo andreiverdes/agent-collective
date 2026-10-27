@@ -1,6 +1,7 @@
 // Acceptance suite: real processes, real unix sockets, isolated HOME. Run with `npm test`.
 import type { FileSink } from "bun";
 import { decodeKeys } from "../tui.ts";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import net from "node:net";
 import os from "node:os";
@@ -46,9 +47,9 @@ async function spawn(name: string, env: Record<string, string> = {}) {
 }
 const cmd = (n: string, o: object) => (procs[n]!.p.stdin as FileSink).write(`${JSON.stringify(o)}\n`);
 let seq = 0;
-async function tool(from: string, name: string, params: object): Promise<string> {
+async function tool(from: string, name: string, params: object, sub = false): Promise<string> {
 	const id = ++seq;
-	cmd(from, { cmd: "tool", name, params, id });
+	cmd(from, { cmd: "tool", name, params, sub, id });
 	for (;;) {
 		const hit = procs[from]!.evs.find(e => e.ev === "tool" && e.id === id);
 		if (hit) return String(hit.text);
@@ -125,9 +126,18 @@ cmd("eps", { cmd: "input" });
 await sleep(100);
 await new Promise<void>(resolve => {
 	const s = net.createConnection(path.join(home, `.agent-collective/default/${procs.eps!.pid}.sock`));
-	s.on("connect", () => s.write(`${JSON.stringify({ t: "msg", from: "beta", body: "late", hop: 4 })}\n`));
+	s.on("connect", () => s.write(`${JSON.stringify({ t: "msg", from: "beta", to: "sess-eps", body: "late", hop: 4 })}\n`));
 	s.on("data", () => { s.destroy(); resolve(); });
 });
+// A raw frame straight at a peer's socket, resolving with its reply.
+const rawsend = (sock: string, frame: object) => {
+	const { promise, resolve } = Promise.withResolvers<{ ok: boolean; error?: string }>();
+	const s = net.createConnection(sock);
+	s.on("connect", () => s.write(`${JSON.stringify(frame)}\n`));
+	s.on("data", d => { s.destroy(); resolve(JSON.parse(String(d).split("\n")[0]!)); });
+	s.on("error", () => { s.destroy(); resolve({ ok: false, error: "transport" }); });
+	return promise;
+};
 check((await tool("eps", "peer_send", { to: "alpha", message: "unrelated" })).startsWith("Delivered"), "steered-by-hop-4 worker can still message an unrelated peer");
 check((await tool("eps", "peer_send", { to: "beta", message: "answer" })).includes("Refused"), "but its answer to the hop-4 sender is refused");
 cmd("eps", { cmd: "end" });
@@ -351,6 +361,68 @@ await switchTo("sw", "sess-swA");
 check((await whoami("sw")) === "keepme", "/resume in the same process gets the /callsign back", `${await whoami("sw")}`);
 await spawn("sw2", { ...swp, SESSION_ID: "sess-swB" });
 check((await whoami("sw2")) === "swp-001", "a session left in a still-running process resumes elsewhere with its callsign", `${await whoami("sw2")}`);
+
+// 13. Subagents never own the process node; delivery is session-bound and agent-attributed
+await spawn("owner", { HOST: "omp", SESSION_ID: "sess-owner", AGENT_KIND: "main" });
+await spawn("peer1", { HOST: "omp", SESSION_ID: "sess-peer1" });
+await spawn("peer2", { HOST: "omp", SESSION_ID: "sess-peer2" });
+await spawn("kid", { HOST: "omp", SESSION_ID: "sess-kid", AGENT_KIND: "sub" });
+const subStartId = ++seq;
+cmd("owner", { cmd: "sub-start", id: subStartId });
+while (!procs.owner!.evs.some(e => e.ev === "sub-started" && e.id === subStartId)) await sleep(20);
+check((await whoami("owner")) === "owner", "a top-level session keeps its callsign while a subagent session runs");
+const ownerRecord = path.join(home, `.agent-collective/default/${procs.owner!.pid}.json`);
+const ownerRecordFile = fs.existsSync(ownerRecord)
+	? (JSON.parse(fs.readFileSync(ownerRecord, "utf8")) as { sessionId?: string; busy?: boolean })
+	: undefined;
+check(
+	ownerRecordFile?.sessionId === "sess-owner" && ownerRecordFile?.busy === false,
+	"the process record still names the top-level session",
+);
+check(
+	(await tool("owner", "peers", {}, true)).includes("unavailable inside a task subagent") &&
+		(await tool("owner", "peer_send", { to: "peer1", message: "from sub" }, true)).includes("unavailable inside a task subagent") &&
+		(await tool("kid", "peers", {})).includes("unavailable inside a task subagent"),
+	"peer tools are refused inside a subagent",
+);
+const subEndId = ++seq;
+cmd("owner", { cmd: "sub-end", id: subEndId });
+while (!procs.owner!.evs.some(e => e.ev === "sub-ended" && e.id === subEndId)) await sleep(20);
+cmd("kid", { cmd: "exit" });
+await sleep(300);
+check(fs.existsSync(ownerRecord), "a subagent shutdown does not remove the parent's record");
+check((await tool("owner", "peer_send", { to: "peer1", message: "still reachable" })).startsWith("Delivered"), "the parent can still send after its subagent exits");
+await sleep(700);
+
+// A claim whose live pid holds a different callsign, or whose start time is another process's,
+// is not that peer: the reservation is reported instead of delivering to a stranger.
+const ownerStart = execFileSync("ps", ["-o", "lstart=", "-p", String(procs.owner!.pid)], { encoding: "utf8", env: { ...process.env, LC_ALL: "C" } }).trim();
+const namesDir = path.join(home, ".agent-collective/default/names");
+fs.writeFileSync(path.join(namesDir, "alias-owner"), JSON.stringify({ pid: procs.owner!.pid, start: ownerStart, sessionId: "sess-owner", cwd: "/tmp/owner", via: "omp" }));
+fs.writeFileSync(path.join(namesDir, "ghost"), JSON.stringify({ pid: procs.owner!.pid, start: "not-this-process", sessionId: "sess-ghost", cwd: "/tmp/ghost", via: "omp" }));
+check((await tool("peer2", "peer_send", { to: "alias-owner", message: "wrong name" })).startsWith("alias-owner is offline"), "a claim whose live pid holds a different callsign is not resolved live");
+check((await tool("peer2", "peer_send", { to: "ghost", message: "wrong start" })).startsWith("ghost is offline"), "a claim whose process start does not match is not resolved live");
+
+// Frames are bound to the recipient session, and peer text is not human authorship.
+const peer1Sock = path.join(home, `.agent-collective/default/${procs.peer1!.pid}.sock`);
+check((await rawsend(peer1Sock, { t: "msg", from: "peer2", to: "sess-not-peer1", body: "wrong recipient", hop: 0 })).ok === false, "a frame bound to another session is refused");
+check(evs("peer1", "inbound").every(e => !String(e.text).includes("wrong recipient")), "the refused frame is not injected");
+check((await rawsend(peer1Sock, { t: "msg", from: "peer2", body: "no recipient", hop: 0 })).ok === false, "a frame without a recipient session is refused");
+check((await tool("peer2", "peer_send", { to: "peer1", message: "provenance probe" })).startsWith("Delivered"), "a peer send reaches its bound session");
+await sleep(700);
+const peerIn = evs("peer1", "inbound").find(e => String(e.text).includes("provenance probe"));
+check(
+	peerIn?.via === "custom" && peerIn?.attribution === "agent" && peerIn?.customType === "collective",
+	"peer text arrives as an agent-attributed custom message",
+	JSON.stringify(peerIn),
+);
+const cliToPeer1 = cli("send", "peer1", "typed by a person");
+await sleep(700);
+check(
+	cliToPeer1.code === 0 && evs("peer1", "inbound").some(e => e.via === "user" && String(e.text).includes("typed by a person")),
+	"CLI text still arrives as a user message",
+	cliToPeer1.out.trim(),
+);
 
 for (const { p } of Object.values(procs)) p.kill();
 fs.rmSync(home, { recursive: true, force: true });

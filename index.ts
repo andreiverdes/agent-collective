@@ -314,6 +314,7 @@ class CollectiveNode {
 	stop(): void {
 		if (this.#stopped) return;
 		this.#stopped = true;
+		this.#pending.clear();
 		this.#stopTimer?.();
 		this.#server?.close();
 		if (this.#ownsSocket()) fs.rmSync(this.#socketPath, { force: true });
@@ -647,7 +648,11 @@ class CollectiveNode {
 			if (target.kind === "offline") this.#log({ at: Date.now(), dir: "out", peer: callsign, hop, outcome: "offline", body, human });
 			return { ok: false, outcome: target.kind, text: unreachableText(callsign, this.scope, target) };
 		}
-		const frame: PeerFrame = { t: "msg", from: this.#callsign, body, replyTo: options.replyTo, hop };
+		if (!target.record.sessionId) {
+			this.#log({ at: Date.now(), dir: "out", peer: callsign, hop, outcome: "unknown", body, human });
+			return { ok: false, outcome: "unknown", text: `${callsign} predates session binding; restart it.` };
+		}
+		const frame: PeerFrame = { t: "msg", from: this.#callsign, to: target.record.sessionId, body, replyTo: options.replyTo, hop };
 		const reply = await deliver(target.record, frame);
 		const outcome = reply.ok ? (reply.outcome ?? "injected") : reply.error?.startsWith("Refused") ? "refused" : "failed";
 		this.#log({ at: Date.now(), dir: "out", peer: callsign, hop, outcome, body, human });
@@ -775,6 +780,16 @@ class CollectiveNode {
 			socket.write(`${JSON.stringify({ ok: false, error: "unknown frame" })}\n`);
 			return;
 		}
+		// The sender resolved this session's id; a frame bound to another one belongs to a
+		// session this process no longer hosts (`/resume` swapped it in the same pid).
+		if (typeof frame.to !== "string" || frame.to.length === 0) {
+			socket.write(`${JSON.stringify({ ok: false, error: "sender predates session binding; restart it" })}\n`);
+			return;
+		}
+		if (frame.to !== this.#sessionId) {
+			socket.write(`${JSON.stringify({ ok: false, error: "recipient session changed; message not delivered" })}\n`);
+			return;
+		}
 		const hop = typeof frame.hop === "number" && Number.isFinite(frame.hop) ? Math.max(0, Math.trunc(frame.hop)) : 0;
 		if (hop > MAX_HOPS) {
 			this.#ctx.ui.notify(
@@ -810,6 +825,11 @@ class CollectiveNode {
 			const timer = setTimeout(resolve, COALESCE_MS);
 			timer.unref?.();
 			await promise;
+			if (this.#stopped || this.#ctx.sessionManager.getSessionId() !== this.hostSessionId) {
+				this.#pending.delete(frame.from);
+				socket.write(`${JSON.stringify({ ok: false, error: "recipient session changed; message not delivered" })}\n`);
+				return;
+			}
 			const batch = this.#pending.get(frame.from) ?? { bodies: [frame.body], hop };
 			this.#pending.delete(frame.from);
 			const body =
@@ -889,7 +909,15 @@ class CollectiveNode {
 		const asks: string[] = [];
 		for (const entry of this.thread(peer)) {
 			if (entry.dir === "in") asks.length = 0;
-			else if (entry.human && entry.outcome !== "refused" && entry.outcome !== "offline" && entry.outcome !== "failed") asks.push(entry.body);
+			else if (
+				entry.human &&
+				entry.outcome !== "refused" &&
+				entry.outcome !== "offline" &&
+				entry.outcome !== "unknown" &&
+				entry.outcome !== "failed"
+			) {
+				asks.push(entry.body);
+			}
 		}
 		return asks;
 	}

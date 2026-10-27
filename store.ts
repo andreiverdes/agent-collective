@@ -112,9 +112,12 @@ export interface PeerRecord {
  *
  * `human` marks a message a person typed outside any session (the CLI, the Tern block):
  * `from` is then a label, not a callsign, and there is nobody to reply to by peer_send.
+ *
+ * `to` is the recipient session id the sender resolved. The receiver refuses a frame that
+ * names another session: a pid can host a session the sender did not mean.
  */
 export type PeerFrame =
-	| { t: "msg"; from: string; body: string; replyTo?: string; hop?: number; human?: boolean }
+	| { t: "msg"; from: string; to: string; body: string; replyTo?: string; hop?: number; human?: boolean }
 	| { t: "ping"; from: string };
 
 export interface PeerReply {
@@ -322,8 +325,10 @@ export type Target =
 
 /**
  * Resolve a callsign through its claim — the single source of truth for who holds it;
- * records only carry a copy. Records are matched by name alone for peers on 0.4.0, which
- * wrote no claims.
+ * records only carry a copy. A claim reaches a record only when the running pid still holds
+ * that callsign (`/resume` and a subagent can leave a claim naming a pid whose current
+ * session is someone else) and, when the claim names a session, that same session. The
+ * `owner === "missing"` branch is for 0.4.0 peers, which wrote no claims.
  */
 export function resolveTarget(dir: string, callsign: string, selfPid: number = process.pid): Target {
 	const peers = readRecords(dir).filter(record => record.pid !== selfPid);
@@ -331,7 +336,16 @@ export function resolveTarget(dir: string, callsign: string, selfPid: number = p
 	const owner = readClaim(file);
 	const record =
 		typeof owner === "object"
-			? owner.left ? undefined : peers.find(peer => peer.pid === owner.pid)
+			? owner.left
+				? undefined
+				: !claimLive(owner, processStart(owner.pid) !== undefined)
+					? undefined
+					: peers.find(
+							peer =>
+								peer.pid === owner.pid &&
+								peer.callsign === callsign &&
+								(owner.sessionId === undefined || peer.sessionId === owner.sessionId),
+						)
 			: owner === "missing"
 				? peers.find(peer => peer.callsign === callsign)
 				: undefined;
