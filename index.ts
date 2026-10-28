@@ -12,9 +12,10 @@
  *   - **Need-to-know.** A session's contacts are the peers it has messaged or heard from.
  *     Only those are shown in its status chip, and they persist per session.
  *
- * omp and pi expose the same two tools. Inbound messages arrive through
- * `sendUserMessage`: an idle agent wakes; a busy omp agent receives an aside (no tool-batch
- * interrupt), a busy pi agent a steer (pi has no aside).
+ * omp and pi expose the same two tools. Inbound peer messages arrive as agent-attributed custom
+ * messages (`sendMessage`), so they never enter the transcript as human prompts; an idle agent
+ * wakes, a busy omp agent receives an aside (no tool-batch interrupt), a busy pi agent a steer
+ * (pi has no aside). Text a person typed (CLI, Tern) arrives as a user message instead.
  *
  * Two host quirks worth knowing before editing this file:
  *   - NEVER detach a method from the api object (`const on = pi.on`). omp's ExtensionAPI
@@ -70,6 +71,8 @@ const COALESCE_MS = 400;
 
 interface CollectiveContext {
 	cwd: string;
+	/** omp only: identity of the session this extension registration serves. */
+	agent?: { kind: "main" | "sub" };
 	ui: {
 		notify(message: string, type?: "info" | "warning" | "error"): void;
 		setStatus(key: string, text: string | undefined): void;
@@ -108,16 +111,28 @@ interface CollectivePi {
 			toolCallId: string,
 			params: Record<string, unknown>,
 			signal?: AbortSignal,
+			onUpdate?: unknown,
+			ctx?: CollectiveContext,
 		) => Promise<ToolResult>;
 	}): void;
 	getSessionName(): string | undefined;
 	/** omp has `"aside"` (no interrupt mid-turn); pi does not. */
 	sendUserMessage(content: string, options?: { deliverAs?: "steer" | "followUp" | "aside" }): void;
+	/** omp only: a message the host records as `role: "custom"`, not as a person's prompt. */
+	sendMessage?(
+		message: { customType: string; content: string; display?: boolean; attribution?: "user" | "agent" },
+		options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" | "aside" },
+	): void;
 	logger?: { warn(message: string): void };
 }
 
 /** One collective node per process, even when several sessions load the extension. */
 let node: CollectiveNode | undefined;
+
+/** omp runs task subagents in the parent process; only the top-level session may own a node. */
+function isSubagent(ctx: CollectiveContext): boolean {
+	return ctx.agent?.kind === "sub";
+}
 
 /**
  * Get the live node for the host's current session, starting one if there is none. Every
@@ -127,6 +142,8 @@ let node: CollectiveNode | undefined;
  * fresh one loads the current session's callsign and contacts.
  */
 function ensureNode(pi: CollectivePi, ctx: CollectiveContext): CollectiveNode | undefined {
+	// A subagent shares its parent's process, node and socket: it must neither replace nor stop them.
+	if (isSubagent(ctx)) return undefined;
 	if (node && !node.stopped && node.hostSessionId === ctx.sessionManager.getSessionId()) return node;
 	node?.stop();
 	try {
@@ -297,6 +314,7 @@ class CollectiveNode {
 	stop(): void {
 		if (this.#stopped) return;
 		this.#stopped = true;
+		this.#pending.clear();
 		this.#stopTimer?.();
 		this.#server?.close();
 		if (this.#ownsSocket()) fs.rmSync(this.#socketPath, { force: true });
@@ -630,7 +648,11 @@ class CollectiveNode {
 			if (target.kind === "offline") this.#log({ at: Date.now(), dir: "out", peer: callsign, hop, outcome: "offline", body, human });
 			return { ok: false, outcome: target.kind, text: unreachableText(callsign, this.scope, target) };
 		}
-		const frame: PeerFrame = { t: "msg", from: this.#callsign, body, replyTo: options.replyTo, hop };
+		if (!target.record.sessionId) {
+			this.#log({ at: Date.now(), dir: "out", peer: callsign, hop, outcome: "unknown", body, human });
+			return { ok: false, outcome: "unknown", text: `${callsign} predates session binding; restart it.` };
+		}
+		const frame: PeerFrame = { t: "msg", from: this.#callsign, to: target.record.sessionId, body, replyTo: options.replyTo, hop };
 		const reply = await deliver(target.record, frame);
 		const outcome = reply.ok ? (reply.outcome ?? "injected") : reply.error?.startsWith("Refused") ? "refused" : "failed";
 		this.#log({ at: Date.now(), dir: "out", peer: callsign, hop, outcome, body, human });
@@ -758,6 +780,16 @@ class CollectiveNode {
 			socket.write(`${JSON.stringify({ ok: false, error: "unknown frame" })}\n`);
 			return;
 		}
+		// The sender resolved this session's id; a frame bound to another one belongs to a
+		// session this process no longer hosts (`/resume` swapped it in the same pid).
+		if (typeof frame.to !== "string" || frame.to.length === 0) {
+			socket.write(`${JSON.stringify({ ok: false, error: "sender predates session binding; restart it" })}\n`);
+			return;
+		}
+		if (frame.to !== this.#sessionId) {
+			socket.write(`${JSON.stringify({ ok: false, error: "recipient session changed; message not delivered" })}\n`);
+			return;
+		}
 		const hop = typeof frame.hop === "number" && Number.isFinite(frame.hop) ? Math.max(0, Math.trunc(frame.hop)) : 0;
 		if (hop > MAX_HOPS) {
 			this.#ctx.ui.notify(
@@ -793,6 +825,11 @@ class CollectiveNode {
 			const timer = setTimeout(resolve, COALESCE_MS);
 			timer.unref?.();
 			await promise;
+			if (this.#stopped || this.#ctx.sessionManager.getSessionId() !== this.hostSessionId) {
+				this.#pending.delete(frame.from);
+				socket.write(`${JSON.stringify({ ok: false, error: "recipient session changed; message not delivered" })}\n`);
+				return;
+			}
 			const batch = this.#pending.get(frame.from) ?? { bodies: [frame.body], hop };
 			this.#pending.delete(frame.from);
 			const body =
@@ -842,12 +879,26 @@ class CollectiveNode {
 			text = `[collective] message from peer \`${frame.from}\`${frame.replyTo ? " (a reply)" : ""} to you (\`${this.#callsign}\`):\n\n${context}${frame.body}\n\nReply with the \`peer_send\` tool addressed to \`${frame.from}\` if a response is useful.${budget}`;
 		}
 		this.#log({ at: Date.now(), dir: "in", peer: frame.from, hop: frame.hop, body: frame.body, human: frame.human || undefined });
-		if (wakes) {
-			this.#pi.sendUserMessage(text);
-			return "woken";
+		if (frame.human) {
+			// A person typed it (CLI, Tern block): record it as a user prompt, which is what it is.
+			if (wakes) {
+				this.#pi.sendUserMessage(text);
+				return "woken";
+			}
+			this.#pi.sendUserMessage(text, { deliverAs: this.#via === "omp" ? "aside" : "steer" });
+			return this.#via === "omp" ? "aside" : "steered";
 		}
-		this.#pi.sendUserMessage(text, { deliverAs: this.#via === "omp" ? "aside" : "steer" });
-		return this.#via === "omp" ? "aside" : "steered";
+		// A peer's text is agent-authored: a custom message keeps it out of the user-only
+		// transcript that memory extraction reads, while still prompting the turn.
+		const message = { customType: "collective", content: text, display: true, attribution: "agent" as const };
+		if (this.#pi.sendMessage) {
+			// omp's aside wakes an idle session and lands at the next step boundary on a busy one.
+			this.#pi.sendMessage(message, this.#via === "omp" ? { deliverAs: "aside" } : { deliverAs: "steer", triggerTurn: true });
+		} else {
+			// Host without custom messages (predates sendMessage): keeps the old delivery, as user text.
+			this.#pi.sendUserMessage(text, wakes ? undefined : { deliverAs: this.#via === "omp" ? "aside" : "steer" });
+		}
+		return wakes ? "woken" : this.#via === "omp" ? "aside" : "steered";
 	}
 
 	/**
@@ -858,7 +909,15 @@ class CollectiveNode {
 		const asks: string[] = [];
 		for (const entry of this.thread(peer)) {
 			if (entry.dir === "in") asks.length = 0;
-			else if (entry.human && entry.outcome !== "refused" && entry.outcome !== "offline" && entry.outcome !== "failed") asks.push(entry.body);
+			else if (
+				entry.human &&
+				entry.outcome !== "refused" &&
+				entry.outcome !== "offline" &&
+				entry.outcome !== "unknown" &&
+				entry.outcome !== "failed"
+			) {
+				asks.push(entry.body);
+			}
 		}
 		return asks;
 	}
@@ -872,8 +931,10 @@ export default function collective(pi: CollectivePi): void {
 	}
 
 	// The host is disposing of the session (exit, or pi tearing it down to replace it); the next
-	// handler or command re-arms a node against whatever session comes next.
-	pi.on("session_shutdown", async () => {
+	// handler or command re-arms a node against whatever session comes next. A subagent's
+	// shutdown must not stop the node its parent owns.
+	pi.on("session_shutdown", async (_payload, ctx) => {
+		if (isSubagent(ctx)) return;
 		node?.stop();
 		node = undefined;
 	});
@@ -887,10 +948,12 @@ export default function collective(pi: CollectivePi): void {
 		const live = ensureNode(pi, ctx);
 		const { source } = event as { source?: string };
 		if (source === "extension") return;
+		if (isSubagent(ctx)) return;
 		live?.resetLineage();
 	});
 
 	pi.on("agent_start", async (_event, ctx) => {
+		if (isSubagent(ctx)) return;
 		ensureNode(pi, ctx)?.setBusy(true);
 	});
 
@@ -898,7 +961,8 @@ export default function collective(pi: CollectivePi): void {
 	 * A finished turn owes nothing to the messages it answered, and is the moment the
 	 * instance becomes idle — the only other time its record changes.
 	 */
-	pi.on("agent_end", async () => {
+	pi.on("agent_end", async (_event, ctx) => {
+		if (isSubagent(ctx)) return;
 		node?.resetLineage();
 		node?.setBusy(false);
 	});
@@ -960,7 +1024,10 @@ export default function collective(pi: CollectivePi): void {
 			},
 			additionalProperties: false,
 		},
-		execute: async (_toolCallId, params) => {
+		execute: async (_toolCallId, params, _signal, _onUpdate, ctx) => {
+			if (ctx && isSubagent(ctx)) {
+				return { content: [{ type: "text", text: "collective: peer tools are unavailable inside a task subagent; use the top-level session." }] };
+			}
 			if (!node || node.stopped) {
 				return { content: [{ type: "text", text: "The collective node is not running in this process; run /collective to start it." }] };
 			}
@@ -1000,7 +1067,10 @@ export default function collective(pi: CollectivePi): void {
 			required: ["to", "message"],
 			additionalProperties: false,
 		},
-		execute: async (_toolCallId, params) => {
+		execute: async (_toolCallId, params, _signal, _onUpdate, ctx) => {
+			if (ctx && isSubagent(ctx)) {
+				return { content: [{ type: "text", text: "collective: peer tools are unavailable inside a task subagent; use the top-level session." }] };
+			}
 			if (!node || node.stopped) {
 				return { content: [{ type: "text", text: "The collective node is not running in this process; run /collective to start it." }] };
 			}

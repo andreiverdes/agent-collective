@@ -104,7 +104,8 @@ async function main(): Promise<void> {
 			process.stdout.write(`${unreachableText(to, profile, target)}\n`);
 			process.exit(2);
 		}
-		const reply = await deliver(target.record, { t: "msg", from, body, hop: 0, human: true });
+		if (!target.record.sessionId) fail(`${to} predates session binding; restart it.`, 2);
+		const reply = await deliver(target.record, { t: "msg", from, to: target.record.sessionId, body, hop: 0, human: true });
 		if (!reply.ok) {
 			process.stdout.write(`Delivery to ${to} failed: ${reply.error ?? "unknown error"}\n`);
 			process.exit(1);
